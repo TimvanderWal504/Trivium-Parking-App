@@ -1,0 +1,30 @@
+@import "swiper/css";
+@import "swiper/css/navigation";
+@import "swiper/css/pagination";
+
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #84ad28;
+    --color-secondary: #004d93;
+
+    /* Optional: Define shades if needed for hover/focus states */
+    /* --color-primary-light: ...; */
+    /* --color-primary-dark: ...; */
+}
+
+/* You can add global styles to this file, and also import other style files */
+html, body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.mat-icon {
+    width: 10rem !important;
+    height: 5rem !important;
+    font-size: 7.5rem !important;
+}

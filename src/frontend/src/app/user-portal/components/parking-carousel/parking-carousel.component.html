@@ -1,0 +1,77 @@
+<div class="parking-carousel-container p-4 bg-white">
+  <!-- Loading state -->
+  <div *ngIf="isLoading$ | async" class="text-center text-gray-500 py-4">
+    Loading available days...
+  </div>
+
+  <!-- Error state -->
+  <ng-container *ngIf="errorMessage$ | async as error">
+    <div
+      *ngIf="error && !(isLoading$ | async)"
+      class="text-center text-red-600 bg-red-100 p-3 rounded-md border border-red-300"
+    >
+      {{ error }}
+    </div>
+  </ng-container>
+
+  <!-- Data state -->
+  <ng-container *ngIf="!(isLoading$ | async) && !(errorMessage$ | async)">
+    <ng-container *ngIf="parkingDays$ | async as days">
+      <ng-container *ngIf="days.length > 0; else noDays">
+        <swiper-container
+          [attr.slides-per-view]="slidesPerView$ | async"
+          space-between="20"
+          centeredSlides="true"
+          [scrollbar]="{ horizontalClass: 'bg-red-100' }"
+          observer="true"
+          observeParents="true"
+        >
+          <swiper-slide *ngFor="let day of days">
+            <div
+              class="rounded-md p-4 text-center shadow border border-gray-200"
+              [ngClass]="{ 'opacity-50': day.isLoading }"
+            >
+              <div class="font-semibold text-gray-800 mb-1">
+                {{ day.date | date : "EEE" }}
+              </div>
+              <div class="text-sm text-gray-600 mb-3">
+                {{ day.date | date : "MMM d" }}
+              </div>
+
+              <!-- Toggle switch -->
+              <button
+                type="button"
+                role="switch"
+                [disabled]="day.isLoading"
+                (click)="toggleRequest(day)"
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[--color-primary] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                [ngClass]="day.isRequested ? 'bg-primary' : 'bg-secondary/50'"
+              >
+                <span class="sr-only">
+                  Request parking for {{ day.date | date : "longDate" }}
+                </span>
+                <span
+                  aria-hidden="true"
+                  class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                  [ngClass]="
+                    day.isRequested ? 'translate-x-5' : 'translate-x-0'
+                  "
+                ></span>
+              </button>
+            </div>
+          </swiper-slide>
+          <div
+            class="swiper-pagination absolute bottom-5 left-0 right-0 text-center"
+          ></div>
+        </swiper-container>
+      </ng-container>
+    </ng-container>
+
+    <!-- Fallback wanneer er geen dagen zijn -->
+    <ng-template #noDays>
+      <div class="text-center text-gray-500 py-4">
+        No requestable days found.
+      </div>
+    </ng-template>
+  </ng-container>
+</div>

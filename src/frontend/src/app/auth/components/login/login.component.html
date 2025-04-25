@@ -1,0 +1,121 @@
+<app-header />
+<div class="flex min-h-screen font-sans">
+  <!-- Left Column (Form Area) -->
+  <div
+    class="w-full md:w-1/2 lg:w-2/5 flex flex-col justify-center items-center p-8 sm:p-12 bg-gray-50 relative"
+  >
+    <div class="w-full max-w-xs z-10">
+      <h1 class="text-4xl font-light text-gray-800 mb-2">
+        Parking &#64; Trivium
+      </h1>
+      <h2 class="text-2xl font-light text-gray-500 mb-10">Sign in</h2>
+
+      <!-- Login Form -->
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-6">
+        <!-- Email -->
+        <div>
+          <label
+            class="block text-xs font-medium text-gray-500 mb-1"
+            for="email"
+            >Email Address</label
+          >
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            placeholder="Enter your email address"
+            class="w-full py-2 border-b border-gray-300 focus:outline-none focus:border-[--color-primary] transition duration-150 ease-in-out text-sm bg-transparent"
+            [ngClass]="{
+              'border-red-500 focus:border-red-500':
+                loginForm.get('email')?.invalid &&
+                loginForm.get('email')?.touched
+            }"
+          />
+          <div
+            *ngIf="
+              loginForm.get('email')?.invalid && loginForm.get('email')?.touched
+            "
+            class="text-red-600 text-xs mt-1"
+          >
+            <span *ngIf="loginForm.get('email')?.errors?.['required']"
+              >Email is required.</span
+            >
+            <span *ngIf="loginForm.get('email')?.errors?.['email']"
+              >Invalid email format.</span
+            >
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label
+              class="block text-xs font-medium text-gray-500"
+              for="password"
+              >Password</label
+            >
+            <a href="#" class="text-xs text-[--color-secondary] hover:underline"
+              >Forgot your password?</a
+            >
+          </div>
+          <div class="relative">
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              placeholder="Enter your password"
+              class="w-full py-2 border-b border-gray-300 focus:outline-none focus:border-[--color-primary] transition duration-150 ease-in-out text-sm bg-transparent"
+              [ngClass]="{
+                'border-red-500 focus:border-red-500':
+                  loginForm.get('password')?.invalid &&
+                  loginForm.get('password')?.touched
+              }"
+            />
+          </div>
+          <div
+            *ngIf="
+              loginForm.get('password')?.invalid &&
+              loginForm.get('password')?.touched
+            "
+            class="text-red-600 text-xs mt-1"
+          >
+            <span *ngIf="loginForm.get('password')?.errors?.['required']"
+              >Password is required.</span
+            >
+            <span *ngIf="loginForm.get('password')?.errors?.['minlength']"
+              >Min. 6 characters required.</span
+            >
+          </div>
+        </div>
+
+        <!-- Error Message Display -->
+        <div
+          *ngIf="errorMessage as error"
+          class="p-3 text-center text-sm text-red-800 bg-red-100 rounded-md border border-red-400"
+        >
+          {{ error }}
+        </div>
+
+        <!-- Sign in Button -->
+        <div class="pt-2">
+          <button
+            type="submit"
+            [disabled]="loginForm.invalid || isLoading"
+            class="w-full shadow px-6 py-2.5 text-base font-medium text-white bg-primary rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary/70 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out"
+          >
+            <span *ngIf="!isLoading">Sign in</span>
+            <span *ngIf="isLoading">Signing In...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Column (Image Area) -->
+  <div
+    class="hidden md:block md:w-1/2 lg:w-3/5 fixed top-0 right-0 h-screen z-50 bg-gray-800 bg-cover bg-center pointer-events-none"
+    [ngStyle]="{ 'background-image': 'url(\'' + mainImage + '\')' }"
+  >
+    <div class="absolute inset-0 bg-black/20"></div>
+  </div>
+</div>

@@ -1,0 +1,91 @@
+# Azure Pipelines YAML for Infrastructure Deployment (Bicep) - Placeholder Definition
+
+trigger: none # Typically triggered manually or by changes in the 'infra' path
+
+pool:
+  vmImage: "ubuntu-latest" # Or 'windows-latest'
+
+parameters:
+  - name: environment
+    displayName: "Target Environment (dev, test, stg, prod)"
+    type: string
+    default: "dev"
+    values:
+      - dev
+      - test
+      - stg
+      - prod
+  - name: location
+    displayName: "Azure Region"
+    type: string
+    default: "westeurope" # Example default location
+  - name: baseName
+    displayName: "Base Name for Resources"
+    type: string
+    default: "triviumparking"
+# Add parameters for secure inputs like SQL Admin password if not using Key Vault
+# - name: sqlAdminPassword
+#   displayName: 'SQL Admin Password'
+#   type: string
+
+variables:
+  # Define variables based on parameters
+  resourceGroupName: "rg-${{ parameters.baseName }}-${{ parameters.environment }}"
+  templateFile: "infra/main.bicep"
+  # Add other variables as needed
+
+stages:
+  - stage: ValidateInfrastructure
+    displayName: "Validate Bicep Template"
+    jobs:
+      - job: Validate
+        displayName: "Validate Bicep"
+        steps:
+          - task: AzureCLI@2
+            displayName: "Validate Bicep Template"
+            inputs:
+              azureSubscription: "<YourAzureServiceConnectionName>" # Replace with your service connection
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                az deployment group validate \
+                  --resource-group $(resourceGroupName) \
+                  --template-file $(templateFile) \
+                  --parameters environment=${{ parameters.environment }} \
+                               baseName=${{ parameters.baseName }} \
+                               location=${{ parameters.location }} \
+                               # Add other parameters here, potentially referencing pipeline secrets for secure params
+                echo "Bicep validation complete."
+
+  - stage: DeployInfrastructure
+    displayName: "Deploy Azure Resources"
+    dependsOn: ValidateInfrastructure
+    condition: succeeded() # Only run if validation succeeds
+    jobs:
+      - job: Deploy
+        displayName: "Deploy Bicep"
+        steps:
+          - task: AzureCLI@2
+            displayName: "Deploy Bicep Template"
+            inputs:
+              azureSubscription: "<YourAzureServiceConnectionName>" # Replace with your service connection
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                # Ensure Resource Group exists (optional, Bicep can create it if scoped to subscription)
+                az group create --name $(resourceGroupName) --location ${{ parameters.location }}
+
+                # Deploy Bicep template
+                az deployment group create \
+                  --resource-group $(resourceGroupName) \
+                  --template-file $(templateFile) \
+                  --parameters environment=${{ parameters.environment }} \
+                               baseName=${{ parameters.baseName }} \
+                               location=${{ parameters.location }} \
+                               # Add other parameters here
+                echo "Bicep deployment complete."
+
+# Note:
+# - Replace '<YourAzureServiceConnectionName>' with the actual name of your Azure service connection in Azure DevOps.
+# - Secure parameters (like SQL passwords) should ideally be handled via Azure Key Vault integration or Pipeline Secrets/Variable Groups.
+# - This is a basic structure; add stages for different environments (Test, Staging, Prod) with approvals as needed.
