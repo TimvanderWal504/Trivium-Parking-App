@@ -130,24 +130,20 @@ namespace TriviumParkingApp.Backend.Functions
             if (string.IsNullOrEmpty(firebaseUid))
                 return req.CreateResponse(HttpStatusCode.Unauthorized);
 
-            // Get internal user ID via UserService
-            var user = await _userService.SyncFirebaseUserAsync(new UserSyncRequestDto { FirebaseUid = firebaseUid }); // Corrected call
+            var user = await _userService.SyncFirebaseUserAsync(new UserSyncRequestDto { FirebaseUid = firebaseUid });
             if (user == null)
             {
-                 // This implies an issue syncing or finding the user based on a valid token
                  response = req.CreateResponse(HttpStatusCode.InternalServerError);
                  await response.WriteStringAsync("Could not retrieve user data.");
                  return response;
             }
-            int targetUserId = user.Id; // Use the ID of the authenticated user
+            int targetUserId = user.Id;
 
              try
              {
-                 // TODO: Define date range properly based on business rules (e.g., next Mon-Fri)
-                 var startOfWeek = DateOnly.FromDateTime(DateTime.UtcNow); // Placeholder
-                 var endOfWeek = startOfWeek.AddDays(7); // Placeholder
+                 var startOfWeek = DateOnly.FromDateTime(DateTime.UtcNow);
+                 var endOfWeek = startOfWeek.AddDays(7);
 
-                 // Delegate to service
                  var requestsDto = await _requestService.GetUserRequestsAsync(targetUserId, startOfWeek, endOfWeek);
 
                  response = req.CreateResponse(HttpStatusCode.OK);
@@ -155,7 +151,7 @@ namespace TriviumParkingApp.Backend.Functions
              }
              catch (Exception ex)
              {
-                 _logger.LogError(ex, "Error retrieving parking requests for user {UserId}.", targetUserId); // Use targetUserId
+                 _logger.LogError(ex, "Error retrieving parking requests for user {UserId}.", targetUserId);
                  response = req.CreateResponse(HttpStatusCode.InternalServerError);
                  await response.WriteStringAsync("An error occurred while retrieving parking requests.");
              }
@@ -165,18 +161,35 @@ namespace TriviumParkingApp.Backend.Functions
 
         [Function("DeleteParkingRequest")]
         public async Task<HttpResponseData> DeleteParkingRequest(
-            [HttpTrigger(AuthorizationLevel.Function, "delete", Route = "requests/{requestId}")] HttpRequestData req, // Changed AuthLevel
-            string requestId)
+            [HttpTrigger(AuthorizationLevel.Function, "delete", Route = "requests/{requestId}")] HttpRequestData req,
+            string requestId, FunctionContext context)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request to DeleteParkingRequest for request ID: {RequestId}", requestId);
+            HttpResponseData response;
 
-            // --- Authentication/Authorization Placeholder ---
-            // string firebaseUserId = GetFirebaseUserIdFromPrincipal(req.FunctionContext.BindingContext.BindingData["User"] as ClaimsPrincipal);
-            // if (string.IsNullOrEmpty(firebaseUserId)) return req.CreateResponse(HttpStatusCode.Unauthorized);
-            // var (user, _) = await _userService.SyncFirebaseUserAsync(new UserSyncRequestDto { FirebaseUid = firebaseUserId });
-            // if (user == null) return req.CreateResponse(HttpStatusCode.InternalServerError, "Could not find user record.");
-            // int internalUserId = user.Id;
-            // --- End Placeholder ---
+            string firebaseUid;
+            try
+            {
+                firebaseUid = context.GetClaimValue(ClaimTypes.NameIdentifier);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("CreateParkingRequest: Unable to retrieve ClaimsPrincipal. {Message}", ex.Message);
+                response = req.CreateResponse(HttpStatusCode.InternalServerError);
+                await response.WriteStringAsync("Authentication context not found.");
+                return response;
+            }
+
+            if (string.IsNullOrEmpty(firebaseUid))
+                return req.CreateResponse(HttpStatusCode.Unauthorized);
+
+            var user = await _userService.SyncFirebaseUserAsync(new UserSyncRequestDto { FirebaseUid = firebaseUid });
+            if (user == null)
+            {
+                response = req.CreateResponse(HttpStatusCode.InternalServerError);
+                await response.WriteStringAsync("Could not find or create user record.");
+                return response;
+            }
 
             if (!int.TryParse(requestId, out int targetRequestId))
             {
@@ -185,21 +198,17 @@ namespace TriviumParkingApp.Backend.Functions
                 return badReqResponse;
             }
 
-            HttpResponseData response;
             try
             {
-                // Delegate to service, passing requesting user's ID for authorization check
-                bool success = await _requestService.DeleteRequestAsync(targetRequestId, 1 /* Replace with internalUserId */);
+                bool success = await _requestService.DeleteRequestAsync(targetRequestId, user.Id);
 
                 if (success)
                 {
-                    response = req.CreateResponse(HttpStatusCode.NoContent); // Success, no content to return
+                    response = req.CreateResponse(HttpStatusCode.NoContent);
                 }
                 else
                 {
-                    // Service layer logged the reason (not found, forbidden, db error)
-                    // Return appropriate status code based on expected failures
-                    response = req.CreateResponse(HttpStatusCode.NotFound); // Or Forbidden, or BadRequest
+                    response = req.CreateResponse(HttpStatusCode.NotFound);
                     await response.WriteStringAsync("Could not delete parking request. It may not exist or you may not have permission.");
                 }
             }
@@ -211,7 +220,5 @@ namespace TriviumParkingApp.Backend.Functions
             }
             return response;
         }
-
-        // Internal DTO and placeholder auth methods removed
     }
 }

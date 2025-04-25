@@ -46,11 +46,10 @@ namespace TriviumParkingApp.Backend.Services
             try
             {
                 await _requestRepository.AddAsync(newRequest);
-                await _context.SaveChangesAsync(); // Commit the change
+                await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Created parking request ID {RequestId} for user {UserId} for date {RequestedDate}.", newRequest.Id, userId, newRequest.RequestedDate);
 
-                // Map to response DTO
                 return MapRequestToDto(newRequest);
             }
             catch (DbUpdateException dbEx)
@@ -96,13 +95,13 @@ namespace TriviumParkingApp.Backend.Services
                 if (request.UserId != requestingUserId)
                 {
                     _logger.LogWarning("User {RequestingUserId} attempted to delete request ID {RequestId} owned by user {OwnerUserId}.", requestingUserId, requestId, request.UserId);
-                    return false; // Forbidden
+                    return false;
                 }
 
                 // TODO: Add business logic check: Prevent deletion if allocation already occurred for this date?
 
                 _requestRepository.Delete(request);
-                await _context.SaveChangesAsync(); // Commit deletion
+                await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Deleted parking request ID {RequestId} by user {RequestingUserId}.", requestId, requestingUserId);
                 return true;
@@ -119,7 +118,6 @@ namespace TriviumParkingApp.Backend.Services
             }
         }
 
-        // --- Private Mapping Helper ---
         private ParkingRequestResponseDto MapRequestToDto(ParkingRequest request)
         {
             return new ParkingRequestResponseDto

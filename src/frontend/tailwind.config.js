@@ -9,7 +9,11 @@ module.exports = {
         primary: "#84ad28", // Your main color
         secondary: "#004d93", // Your secondary color
       },
+      accentColor: {
+        primary: "var(--color-primary)",
+        secondary: "var(--color-secondary)",
+      },
     },
   },
-  plugins: [],
+  plugins: [require("tailwind-scrollbar")],
 };
