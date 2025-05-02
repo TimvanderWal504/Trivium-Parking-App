@@ -19,54 +19,65 @@
     <ng-container *ngIf="parkingDays$ | async as days">
       <ng-container *ngIf="days.length > 0; else noDays">
         <swiper-container
+          #swiperEl
           [attr.slides-per-view]="slidesPerView$ | async"
           space-between="20"
-          centeredSlides="true"
-          [scrollbar]="{ horizontalClass: 'bg-red-100' }"
-          observer="true"
-          observeParents="true"
+          centeredSlides
+          scrollbar
+          observer
+          observeParents
+          class="[--swiper-scrollbar-bg-color:#e5e7eb] [--swiper-scrollbar-drag-bg-color:#84ad28]"
         >
-          <swiper-slide *ngFor="let day of days">
+          <swiper-slide *ngFor="let day of days; let i = index">
             <div
-              class="rounded-md p-4 text-center shadow border border-gray-200"
-              [ngClass]="{ 'opacity-50': day.isLoading }"
+              #slide
+              class="flex flex-col items-center justify-between p-4 border rounded-lg transition-shadow hover:shadow-md mb-4"
+              [ngClass]="{
+                'border-primary': day.isRequested,
+                'border-secondary/20': !day.isRequested,
+                'opacity-50': day.isLoading
+              }"
             >
-              <div class="font-semibold text-gray-800 mb-1">
-                {{ day.date | date : "EEE" }}
-              </div>
-              <div class="text-sm text-gray-600 mb-3">
-                {{ day.date | date : "MMM d" }}
+              <div
+                class="text-xs font-medium uppercase text-gray-500 mb-1 bg-white"
+              >
+                {{
+                  isSameDate(day.date, today)
+                    ? "Today"
+                    : isSameDate(day.date, tomorrow)
+                    ? "Tomorrow"
+                    : (day.date | date : "EEEE")
+                }}
               </div>
 
-              <!-- Toggle switch -->
-              <button
-                type="button"
-                role="switch"
-                [disabled]="day.isLoading"
-                (click)="toggleRequest(day)"
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[--color-primary] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                [ngClass]="day.isRequested ? 'bg-primary' : 'bg-secondary/50'"
-              >
-                <span class="sr-only">
-                  Request parking for {{ day.date | date : "longDate" }}
-                </span>
-                <span
-                  aria-hidden="true"
-                  class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                  [ngClass]="
-                    day.isRequested ? 'translate-x-5' : 'translate-x-0'
-                  "
-                ></span>
-              </button>
+              <div class="text-2xl font-mono font-semibold text-gray-800 mb-4">
+                {{ day.date | date : "d MMMM" }}
+              </div>
+
+              <div>
+                <input
+                  id="chk-{{ day.date | date : 'yyyyMMdd' }}"
+                  type="checkbox"
+                  class="form-checkbox h-6 w-6"
+                  [ngClass]="{
+                    'accent-secondary': day.isRequested,
+                  }"
+                  [checked]="day.isRequested"
+                  [disabled]="day.isLoading"
+                  (change)="toggleRequest(day, i)"
+                />
+                <label
+                  for="chk-{{ day.date | date : 'yyyyMMdd' }}"
+                  class="sr-only"
+                >
+                  Request to park for {{ day.date | date : "longDate" }}
+                </label>
+              </div>
             </div>
           </swiper-slide>
-          <div
-            class="swiper-pagination absolute bottom-5 left-0 right-0 text-center"
-          ></div>
         </swiper-container>
       </ng-container>
     </ng-container>
-
     <!-- Fallback wanneer er geen dagen zijn -->
     <ng-template #noDays>
       <div class="text-center text-gray-500 py-4">

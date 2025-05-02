@@ -1,10 +1,18 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  inject,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  ViewChild,
+  ElementRef,
+  QueryList,
+  ViewChildren,
+} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ParkingDay } from '../../../models/parking-day.model';
-import { ParkingRequestResponseDto } from '../../../models/parking-request.dtos';
 import { register } from 'swiper/element/bundle';
 import {
   BehaviorSubject,
@@ -24,6 +32,8 @@ import {
   tap,
   filter,
   distinctUntilChanged,
+  take,
+  withLatestFrom,
 } from 'rxjs/operators';
 
 register();
@@ -39,64 +49,77 @@ register();
 export class ParkingCarouselComponent {
   private apiService = inject(ApiService);
   private authService = inject(AuthService);
+  private cdr = inject(ChangeDetectorRef);
 
-  // Internal subject to hold error messages
   private errorMessageSubject = new BehaviorSubject<string | null>(null);
   public readonly errorMessage$ = this.errorMessageSubject.asObservable();
 
-  // Trigger re-load after toggles
   private reload$ = new Subject<void>();
-
-  // Combine login events and explicit reload triggers
   private loadTrigger$ = merge(
     this.authService.appUser$.pipe(filter((u) => !!u)),
     this.reload$
   );
+  @ViewChild('swiperEl', { static: false, read: ElementRef })
+  swiperEl!: ElementRef<HTMLElement>;
 
-  // Core stream: loads ParkingDay[] plus loading state
+  @ViewChildren('slide', { read: ElementRef })
+  slides!: QueryList<ElementRef<HTMLElement>>;
+
+  public today: Date;
+  public tomorrow: Date;
+
+  constructor() {
+    this.today = new Date();
+    this.today.setHours(0, 0, 0, 0);
+
+    this.tomorrow = new Date(this.today);
+    this.tomorrow.setDate(this.today.getDate() + 1);
+  }
+
   private data$ = this.loadTrigger$.pipe(
     tap(() => this.errorMessageSubject.next(null)),
     switchMap(() => {
       const workDays = this.getNextWorkDays();
-      return this.apiService.get<ParkingRequestResponseDto[]>('requests').pipe(
-        map((existingRequests) => {
-          return workDays.map((date) => {
-            const existing = existingRequests.find((req) =>
-              this.isSameDate(new Date(req.requestedDate), date)
-            );
-            return {
-              date,
-              isRequested: !!existing,
-              requestId: existing?.id ?? null,
-            } as ParkingDay;
-          });
-        }),
-        map((days) => ({ days, loading: false })),
-        catchError((err) => {
-          console.error('Error fetching parking requests', err);
-          this.errorMessageSubject.next('Could not load existing requests.');
-          return of({ days: [] as ParkingDay[], loading: false });
-        }),
-        startWith({ days: [] as ParkingDay[], loading: true })
-      );
+      return this.apiService
+        .get<{ Id: number; RequestedDate: string }[]>('requests')
+        .pipe(
+          map((existingRequests) =>
+            workDays.map((date) => {
+              const existing = existingRequests.find((req) => {
+                return this.isSameDate(new Date(req.RequestedDate), date);
+              });
+
+              return {
+                date,
+                isRequested: !!existing,
+                requestId: existing?.Id ?? null,
+                isLoading: false,
+              } as ParkingDay;
+            })
+          ),
+          map((days) => ({ days, loading: false })),
+          catchError((err) => {
+            console.error('Error fetching parking requests', err);
+            this.errorMessageSubject.next('Could not load existing requests.');
+            return of({ days: [] as ParkingDay[], loading: false });
+          }),
+          startWith({ days: [] as ParkingDay[], loading: true })
+        );
     }),
     shareReplay({ bufferSize: 1, refCount: true })
   );
 
-  // Exposed streams for template binding
   public readonly parkingDays$ = this.data$.pipe(map((v) => v.days));
   public readonly isLoading$ = this.data$.pipe(map((v) => v.loading));
 
-  // Compute slidesPerView dynamically based on window width
   public readonly slidesPerView$: Observable<number> = fromEvent(
     window,
     'resize'
   ).pipe(
     startWith(window.innerWidth),
     map(() => window.innerWidth),
-    map((width) => {
-      console.log(width);
-      return width >= 1280
+    map((width) =>
+      width >= 1280
         ? 5
         : width >= 1024
         ? 4
@@ -104,25 +127,63 @@ export class ParkingCarouselComponent {
         ? 3
         : width >= 568
         ? 2
-        : 1;
-    }),
+        : 1
+    ),
     distinctUntilChanged()
   );
 
-  // Toggle a parking request, then trigger reload()
-  toggleRequest(day: ParkingDay): void {
+  ngAfterViewInit() {
+    this.parkingDays$
+      .pipe(
+        filter((days) => days.length > 0),
+        take(1)
+      )
+      .subscribe((days) => {
+        const idx = days.findIndex((d) => !d.isRequested);
+        const target = idx > -1 ? idx : 0;
+        setTimeout(() => {
+          const native = this.swiperEl.nativeElement as any;
+          if (native?.swiper && target < 5) {
+            native.swiper.slideTo(target, 0);
+          }
+        }, 20);
+      });
+  }
+
+  toggleRequest(day: ParkingDay, index: number): void {
     this.errorMessageSubject.next(null);
     day.isLoading = true;
 
-    const apiCall$ =
-      day.isRequested && day.requestId
-        ? this.apiService.delete(`requests/${day.requestId}`)
-        : this.apiService.post<ParkingRequestResponseDto>('requests', {
-            requestedDate: this.formatDateForApi(day.date),
-          });
+    let call$: Observable<{ Id: number } | null>;
+    if (day.isRequested && day.requestId) {
+      call$ = this.apiService
+        .delete<void>(`requests/${day.requestId}`)
+        .pipe(map(() => null));
+    } else {
+      call$ = this.apiService.post<{ Id: number }>('requests', {
+        requestedDate: this.formatDateForApi(day.date),
+      });
+    }
 
-    apiCall$
+    call$
       .pipe(
+        withLatestFrom(this.parkingDays$),
+        tap(([res, days]) => {
+          if (day.isRequested) {
+            day.isRequested = false;
+            day.requestId = null;
+          } else if (res) {
+            day.isRequested = true;
+            day.requestId = res.Id;
+
+            const nextIdx = days.findIndex((d) => !d.isRequested);
+            const native = this.swiperEl.nativeElement as any;
+            if (native?.swiper && nextIdx < 5) {
+              native.swiper.slideTo(nextIdx, 300);
+            }
+          }
+          this.cdr.markForCheck();
+        }),
         catchError((err) => {
           console.error(
             `Error ${day.isRequested ? 'revoking' : 'requesting'} parking`,
@@ -137,13 +198,10 @@ export class ParkingCarouselComponent {
         }),
         finalize(() => {
           day.isLoading = false;
-          this.reload$.next();
         })
       )
       .subscribe();
   }
-
-  // --- Helper methods ---
 
   private getNextWorkDays(): Date[] {
     const dates: Date[] = [];
@@ -162,7 +220,7 @@ export class ParkingCarouselComponent {
     return dates;
   }
 
-  private isSameDate(a: Date, b: Date): boolean {
+  public isSameDate(a: Date, b: Date): boolean {
     return (
       a.getFullYear() === b.getFullYear() &&
       a.getMonth() === b.getMonth() &&
