@@ -6,16 +6,17 @@ namespace TriviumParkingApp.Backend.Repositories
 {
     public class UserRepository : IUserRepository
     {
-        private readonly ParkingDbContext _context;
+        private readonly IDbContextFactory<ParkingDbContext> _contextFactory;
 
-        public UserRepository(ParkingDbContext context)
+        public UserRepository(IDbContextFactory<ParkingDbContext> contextFactory)
         {
-            _context = context;
+            _contextFactory = contextFactory;
         }
 
         public async Task<User?> GetUserByFirebaseUidAsync(string firebaseUid, bool includeRoles = false)
         {
-            IQueryable<User> query = _context.Users;
+            await using var ctx = _contextFactory.CreateDbContext();
+            IQueryable<User> query = ctx.Users;
 
             if (includeRoles)
             {
@@ -27,15 +28,17 @@ namespace TriviumParkingApp.Backend.Repositories
 
         public async Task<User> AddUserAsync(User user)
         {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await using var ctx = _contextFactory.CreateDbContext();
+            ctx.Users.Add(user);
+            await ctx.SaveChangesAsync();
             return user;
         }
 
         public async Task UpdateUserAsync(User user)
         {
-            _context.Entry(user).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            await using var ctx = _contextFactory.CreateDbContext();
+            ctx.Entry(user).State = EntityState.Modified;
+            await ctx.SaveChangesAsync();
         }
     }
 }

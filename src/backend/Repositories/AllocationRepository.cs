@@ -2,31 +2,46 @@ using Microsoft.EntityFrameworkCore;
 using TriviumParkingApp.Backend.Data;
 using TriviumParkingApp.Backend.Models;
 
-namespace TriviumParkingApp.Backend.Repositories
+namespace TriviumParkingApp.Backend.Repositories;
+
+public class AllocationRepository : IAllocationRepository
 {
-    public class AllocationRepository : IAllocationRepository
+    private readonly IDbContextFactory<ParkingDbContext> _contextFactory;
+
+    public AllocationRepository(IDbContextFactory<ParkingDbContext> contextFactory)
     {
-        private readonly ParkingDbContext _context;
+        _contextFactory = contextFactory;
+    }
 
-        public AllocationRepository(ParkingDbContext context)
-        {
-            _context = context;
-        }
+    public async Task AddRangeAsync(IEnumerable<Allocation> allocations)
+    {
+        await using var context = _contextFactory.CreateDbContext();
+        await context.Allocations.AddRangeAsync(allocations);
+        await context.SaveChangesAsync();
+    }
 
-        public async Task AddRangeAsync(IEnumerable<Allocation> allocations)
-        {
-            await _context.Allocations.AddRangeAsync(allocations);
-            // Save handled by service layer's Unit of Work
-        }
+    public async Task<IEnumerable<Allocation>> GetByDateAsync(DateOnly startDate)
+    {
+        await using var context = _contextFactory.CreateDbContext();
 
-        public async Task<IEnumerable<Allocation>> GetByUserIdAndDateRangeAsync(int userId, DateOnly startDate, DateOnly endDate)
-        {
-            return await _context.Allocations
-                                 .Where(a => a.UserId == userId && a.AllocatedDate >= startDate && a.AllocatedDate <= endDate)
-                                 .Include(a => a.ParkingSpace) // Include space details
-                                     .ThenInclude(ps => ps.ParkingLot) // Include lot details from space
-                                 .OrderBy(a => a.AllocatedDate)
-                                 .ToListAsync();
-        }
+        return await context.Allocations
+            .Where(a => a.AllocatedDate == startDate)
+            .Include(a => a.ParkingSpace)
+                .ThenInclude(ps => ps.ParkingLot)
+            .OrderBy(a => a.AllocatedDate)
+            .ToListAsync();
+    }
+
+    public async Task<Allocation?> GetByUserIdAndByDateAsync(int userId, DateOnly startDate)
+    {
+        await using var context = _contextFactory.CreateDbContext();
+
+        return await context.Allocations
+            .AsNoTracking()
+            .Where(a => a.AllocatedDate == startDate && a.UserId == userId)
+            .Include(a => a.ParkingSpace)
+                .ThenInclude(ps => ps.ParkingLot)
+            .OrderBy(a => a.AllocatedDate)
+            .FirstOrDefaultAsync();
     }
 }

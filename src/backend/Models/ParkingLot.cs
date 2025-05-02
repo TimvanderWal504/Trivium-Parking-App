@@ -1,22 +1,18 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace TriviumParkingApp.Backend.Models
+namespace TriviumParkingApp.Backend.Models;
+public class ParkingLot
 {
-    // Represents a physical parking location (e.g., Building A Garage, North Lot)
-    public class ParkingLot
-    {
-        public int Id { get; set; } // Primary Key
+    public int Id { get; set; }
 
-        [Required]
-        [MaxLength(100)]
-        public string Name { get; set; } = string.Empty;
+    [Required]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
 
-        [MaxLength(255)]
-        public string? Address { get; set; } // Optional address
+    [MaxLength(255)]
+    public string? Address { get; set; }
 
-        public int Priority { get; set; } = 0; // Lower number = higher priority for allocation
+    public int Priority { get; set; } = 0;
 
-        // Navigation property
-        public virtual ICollection<ParkingSpace> ParkingSpaces { get; set; } = new List<ParkingSpace>();
-    }
+    public virtual ICollection<ParkingSpace> ParkingSpaces { get; set; } = new List<ParkingSpace>();
 }

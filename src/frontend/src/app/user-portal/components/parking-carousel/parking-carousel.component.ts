@@ -3,10 +3,9 @@ import {
   inject,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
-  ViewChild,
   ElementRef,
-  QueryList,
-  ViewChildren,
+  viewChild,
+  viewChildren,
 } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
@@ -59,11 +58,10 @@ export class ParkingCarouselComponent {
     this.authService.appUser$.pipe(filter((u) => !!u)),
     this.reload$
   );
-  @ViewChild('swiperEl', { static: false, read: ElementRef })
-  swiperEl!: ElementRef<HTMLElement>;
 
-  @ViewChildren('slide', { read: ElementRef })
-  slides!: QueryList<ElementRef<HTMLElement>>;
+  readonly swiperEl = viewChild.required('swiperEl', { read: ElementRef });
+
+  readonly slides = viewChildren('slide', { read: ElementRef });
 
   public today: Date;
   public tomorrow: Date;
@@ -81,18 +79,18 @@ export class ParkingCarouselComponent {
     switchMap(() => {
       const workDays = this.getNextWorkDays();
       return this.apiService
-        .get<{ Id: number; RequestedDate: string }[]>('requests')
+        .get<{ id: number; requestedDate: string }[]>('requests')
         .pipe(
           map((existingRequests) =>
             workDays.map((date) => {
               const existing = existingRequests.find((req) => {
-                return this.isSameDate(new Date(req.RequestedDate), date);
+                return this.isSameDate(new Date(req.requestedDate), date);
               });
 
               return {
                 date,
                 isRequested: !!existing,
-                requestId: existing?.Id ?? null,
+                requestId: existing?.id ?? null,
                 isLoading: false,
               } as ParkingDay;
             })
@@ -142,7 +140,7 @@ export class ParkingCarouselComponent {
         const idx = days.findIndex((d) => !d.isRequested);
         const target = idx > -1 ? idx : 0;
         setTimeout(() => {
-          const native = this.swiperEl.nativeElement as any;
+          const native = this.swiperEl().nativeElement as any;
           if (native?.swiper && target < 5) {
             native.swiper.slideTo(target, 0);
           }
@@ -177,7 +175,7 @@ export class ParkingCarouselComponent {
             day.requestId = res.Id;
 
             const nextIdx = days.findIndex((d) => !d.isRequested);
-            const native = this.swiperEl.nativeElement as any;
+            const native = this.swiperEl().nativeElement as any;
             if (native?.swiper && nextIdx < 5) {
               native.swiper.slideTo(nextIdx, 300);
             }

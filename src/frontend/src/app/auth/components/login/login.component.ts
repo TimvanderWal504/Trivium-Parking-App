@@ -62,7 +62,6 @@ export class LoginComponent implements OnInit {
         this.router.navigate(['/portal']);
       })
       .catch((err: FirebaseError) => {
-        console.log(err);
         this.isLoading = false;
         this.errorMessage = this.mapError(err.code);
       });

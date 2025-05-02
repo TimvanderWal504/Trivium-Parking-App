@@ -1,19 +1,38 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
-using Microsoft.EntityFrameworkCore;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System.Reflection;
+using TriviumParkingApp.Backend.Attributes;
 using TriviumParkingApp.Backend.Data;
-using TriviumParkingApp.Backend.Repositories; // Add Repositories namespace
-using TriviumParkingApp.Backend.Services; // Add Services namespace
-using TriviumParkingApp.Backend.Middleware; // Add Middleware namespace
+using TriviumParkingApp.Backend.Middleware;
+using TriviumParkingApp.Backend.Repositories;
+using TriviumParkingApp.Backend.Services;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWorkerDefaults(worker => // Configure worker defaults
+    .ConfigureFunctionsWorkerDefaults(worker =>
     {
         // Register middleware - order matters!
         worker.UseMiddleware<FirebaseAuthMiddleware>();
+        worker.UseWhen<AuthenticationMiddleware>(context =>
+        {
+            var entry = context.FunctionDefinition.EntryPoint;
+            var lastDot = entry.LastIndexOf('.');
+            var className = entry.Substring(0, lastDot);
+            var methodName = entry[(lastDot + 1)..];
+
+            var asm = Assembly.GetExecutingAssembly();
+            var type = asm.GetType(className);
+            var method = type?.GetMethod(methodName);
+
+            // Kijk of method of class voorzien is van ons auth-attribute
+            bool onMethod = method?.GetCustomAttribute<RequiresAuthenticationMiddlewareAttribute>(inherit: true) != null;
+            bool onClass = type?.GetCustomAttribute<RequiresAuthenticationMiddlewareAttribute>(inherit: true) != null;
+
+            return onMethod || onClass;
+        });
         // Add other middleware here if needed
     })
     .ConfigureServices((context, services) => { // Access context for configuration
@@ -25,7 +44,7 @@ var host = new HostBuilder()
         {
             throw new InvalidOperationException("SQL Azure Connection String 'SqlAzureConnectionString' not found in configuration.");
         }
-        services.AddDbContext<ParkingDbContext>(options =>
+        services.AddDbContextFactory<ParkingDbContext>(options =>
             options.UseSqlServer(sqlConnectionString));
 
         // Configure Firebase Admin SDK

@@ -2,43 +2,61 @@ using Microsoft.EntityFrameworkCore;
 using TriviumParkingApp.Backend.Data;
 using TriviumParkingApp.Backend.Models;
 
-namespace TriviumParkingApp.Backend.Repositories
+namespace TriviumParkingApp.Backend.Repositories;
+
+public class ParkingRequestRepository : IParkingRequestRepository
 {
-    public class ParkingRequestRepository : IParkingRequestRepository
+    private readonly IDbContextFactory<ParkingDbContext> _contextFactory;
+
+    public ParkingRequestRepository(IDbContextFactory<ParkingDbContext> contextFactory)
     {
-        private readonly ParkingDbContext _context;
+        _contextFactory = contextFactory;
+    }
 
-        public ParkingRequestRepository(ParkingDbContext context)
-        {
-            _context = context;
-        }
+    public async Task<ParkingRequest> AddAsync(ParkingRequest request)
+    {
+        await using var ctx = _contextFactory.CreateDbContext();
+        ctx.ParkingRequests.Add(request);
+        await ctx.SaveChangesAsync();
+        return request;
+    }
 
-        public async Task<ParkingRequest> AddAsync(ParkingRequest request)
-        {
-            _context.ParkingRequests.Add(request);
-            // Save handled by service layer's Unit of Work
-            return await Task.FromResult(request); // Return the added entity
-        }
+    public async Task<ParkingRequest?> GetByIdAsync(int requestId)
+    {
+        await using var ctx = _contextFactory.CreateDbContext();
+        return await ctx.ParkingRequests
+                .Include(r => r.User)
+                .FirstOrDefaultAsync(r => r.Id == requestId);
+    }
 
-        public async Task<ParkingRequest?> GetByIdAsync(int requestId)
-        {
-            return await _context.ParkingRequests
-                                 .Include(r => r.User) // Include user if needed by service/caller
-                                 .FirstOrDefaultAsync(r => r.Id == requestId);
-        }
+    public async Task<IEnumerable<ParkingRequest>> GetByUserIdAndDateRangeAsync(
+        int userId,
+        DateOnly startDate,
+        DateOnly endDate)
+    {
+        await using var ctx = _contextFactory.CreateDbContext();
+        return await ctx.ParkingRequests
+            .Where(pr => pr.UserId == userId && pr.RequestedDate >= startDate && pr.RequestedDate <= endDate)
+            .OrderBy(pr => pr.RequestedDate)
+            .ToListAsync();
+    }
 
-        public async Task<IEnumerable<ParkingRequest>> GetByUserIdAndDateRangeAsync(int userId, DateOnly startDate, DateOnly endDate)
-        {
-            return await _context.ParkingRequests
-                                 .Where(pr => pr.UserId == userId && pr.RequestedDate >= startDate && pr.RequestedDate <= endDate)
-                                 .OrderBy(pr => pr.RequestedDate)
-                                 .ToListAsync();
-        }
+    public async Task<IEnumerable<ParkingRequest>> GetByDateAsync(DateOnly startDate)
+    {
+        await using var ctx = _contextFactory.CreateDbContext();
+        return await ctx.ParkingRequests
+            .Include(r => r.User)
+            .ThenInclude(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .Where(pr => pr.RequestedDate == startDate)
+            .OrderBy(pr => pr.RequestedDate)
+            .ToListAsync();
+    }
 
-        public void Delete(ParkingRequest request)
-        {
-            _context.ParkingRequests.Remove(request);
-            // Save handled by service layer's Unit of Work
-        }
+    public async Task DeleteAsync(ParkingRequest request)
+    {
+        await using var ctx = _contextFactory.CreateDbContext();
+        ctx.ParkingRequests.Remove(request);
+        await ctx.SaveChangesAsync();
     }
 }

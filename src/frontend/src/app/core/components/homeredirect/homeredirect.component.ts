@@ -22,13 +22,11 @@ export class HomeRedirectComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit() {
-    console.log('test');
     this.auth.appUser$
       .pipe(
         filter((user): user is AppUser => !!user),
         take(1),
         tap(() => {
-          console.log('portaltest');
           this.router.navigate(['/portal']);
         })
       )
@@ -40,7 +38,6 @@ export class HomeRedirectComponent implements OnInit {
         take(1),
         withLatestFrom(this.auth.appUser$, this.auth.isLoggedIn$),
         tap(([_, user, isLoggedIn]) => {
-          console.log('authtest');
           if (!user && !isLoggedIn) {
             this.router.navigate(['/auth']);
           }

@@ -2,27 +2,26 @@ using Microsoft.EntityFrameworkCore;
 using TriviumParkingApp.Backend.Data;
 using TriviumParkingApp.Backend.Models;
 
-namespace TriviumParkingApp.Backend.Repositories
+namespace TriviumParkingApp.Backend.Repositories;
+
+public class RoleRepository : IRoleRepository
 {
-    public class RoleRepository : IRoleRepository
+    private readonly IDbContextFactory<ParkingDbContext> _contextFactory;
+
+    public RoleRepository(IDbContextFactory<ParkingDbContext> contextFactory)
     {
-        private readonly ParkingDbContext _context;
+        _contextFactory = contextFactory;
+    }
 
-        public RoleRepository(ParkingDbContext context)
+    public async Task<Role?> GetRoleByNameAsync(string roleName)
+    {
+        if (string.IsNullOrWhiteSpace(roleName))
         {
-            _context = context;
+            return null;
         }
 
-        public async Task<Role?> GetRoleByNameAsync(string roleName)
-        {
-            if (string.IsNullOrWhiteSpace(roleName))
-            {
-                return null;
-            }
-
-            // Use case-insensitive comparison for flexibility
-            return await _context.Roles
-                                 .FirstOrDefaultAsync(r => r.Name.Equals(roleName, StringComparison.OrdinalIgnoreCase));
-        }
+        await using var ctx = _contextFactory.CreateDbContext();
+        return await ctx.Roles
+            .FirstOrDefaultAsync(r => r.Name.ToLower().Equals(roleName.ToLower()));
     }
 }
