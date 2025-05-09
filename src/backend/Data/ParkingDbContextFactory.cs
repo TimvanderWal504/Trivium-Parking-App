@@ -24,6 +24,7 @@ namespace TriviumParkingApp.Backend.Data
 
             // Get connection string from the "Values" section in local.settings.json
             var connectionString = configuration.GetValue<string>("Values:SqlAzureConnectionString");
+            Console.WriteLine(connectionString);
             if (string.IsNullOrEmpty(connectionString))
             {
                 throw new InvalidOperationException("Could not find 'SqlAzureConnectionString' in local.settings.json");

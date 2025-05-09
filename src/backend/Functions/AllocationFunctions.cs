@@ -1,13 +1,13 @@
+using backend.Extensions;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using System.Net;
-using TriviumParkingApp.Backend.Attributes;
+using System.Security.Claims;
 using TriviumParkingApp.Backend.Services;
 
 namespace TriviumParkingApp.Backend.Functions;
 
-[RequiresAuthenticationMiddleware]
 public class AllocationFunctions
 {
     private readonly ILogger<AllocationFunctions> _logger;
@@ -26,7 +26,7 @@ public class AllocationFunctions
     public async Task<HttpResponseData> GetUserAllocations(
         [HttpTrigger(AuthorizationLevel.Function, "get", Route = "allocations")] HttpRequestData req, FunctionContext context)
     {
-        var userId = (int)context.Items[Constants.Constants.Context.UserId];
+        var userId = int.Parse(context.GetClaimValue(ClaimTypes.NameIdentifier));
         _logger.LogInformation("C# HTTP trigger function processed a request to GetUserAllocations for user: {UserId}", userId);   
         HttpResponseData response;
 

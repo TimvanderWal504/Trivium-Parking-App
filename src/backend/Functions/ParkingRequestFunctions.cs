@@ -1,15 +1,15 @@
+using backend.Extensions;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using System.Net;
+using System.Security.Claims;
 using System.Text.Json;
-using TriviumParkingApp.Backend.Attributes;
 using TriviumParkingApp.Backend.DTOs;
 using TriviumParkingApp.Backend.Services;
 
 namespace TriviumParkingApp.Backend.Functions;
 
-[RequiresAuthenticationMiddleware]
 public class ParkingRequestFunctions
 {
     private readonly ILogger<ParkingRequestFunctions> _logger;
@@ -30,7 +30,7 @@ public class ParkingRequestFunctions
         _logger.LogInformation("C# HTTP trigger function processed a request to CreateParkingRequest.");
         HttpResponseData response;
 
-        var internalUserId = (int)context.Items[Constants.Constants.Context.UserId];
+        var internalUserId = int.Parse(context.GetClaimValue(ClaimTypes.NameIdentifier));
         var requestBody = await req.ReadAsStringAsync() ?? string.Empty;
         if (string.IsNullOrEmpty(requestBody))
         {
@@ -87,7 +87,7 @@ public class ParkingRequestFunctions
         _logger.LogInformation("C# HTTP trigger function processed a request to GetUserParkingRequests.");
         HttpResponseData response;
 
-        int targetUserId = (int)context.Items[Constants.Constants.Context.UserId];
+        int targetUserId = int.Parse(context.GetClaimValue(ClaimTypes.NameIdentifier));
 
         try
         {
@@ -126,7 +126,7 @@ public class ParkingRequestFunctions
 
         try
         {
-            bool success = await _requestService.DeleteRequestAsync(targetRequestId, (int)context.Items[Constants.Constants.Context.UserId]);
+            bool success = await _requestService.DeleteRequestAsync(targetRequestId, int.Parse(context.GetClaimValue(ClaimTypes.NameIdentifier)));
 
             if (success)
             {

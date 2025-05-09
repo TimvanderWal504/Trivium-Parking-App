@@ -6,30 +6,33 @@ using TriviumParkingApp.Backend.Models;
 using TriviumParkingApp.Backend.Repositories;
 using FirebaseAdmin;
 using FirebaseAdmin.Auth;
+using Microsoft.AspNetCore.Identity;
 
 namespace TriviumParkingApp.Backend.Services;
 
 public class UserService : IUserService
 {
-    private readonly IUserRepository _userRepository;
-    private readonly IRoleRepository _roleRepository;
     private readonly IDbContextFactory<ParkingDbContext> _contextFactory;
+    private readonly UserManager<User> _userManager;
+    private readonly RoleManager<Role> _roleManager;
     private readonly ILogger<UserService> _logger;
     private readonly FirebaseAuth _firebaseAuth;
 
     public UserService(
-        IUserRepository userRepository,
-        IRoleRepository roleRepository,
+        UserManager<User> userManager,
+        RoleManager<Role> roleManager,
         FirebaseApp firebaseApp,
         ILogger<UserService> logger)
     {
-        _userRepository = userRepository;
-        _roleRepository = roleRepository;
+        _userManager = userManager;
+        _roleManager = roleManager;
         _logger = logger;
         _firebaseAuth = FirebaseAuth.GetAuth(firebaseApp);
     }
 
-    public async Task<UserResponseDto?> SyncFirebaseUserAsync(UserSyncRequestDto syncRequest, bool createNewUser = false)
+    public async Task<UserResponseDto?> SyncFirebaseUserAsync(
+        UserSyncRequestDto syncRequest,
+        bool createNewUser = false)
     {
         if (syncRequest == null || string.IsNullOrWhiteSpace(syncRequest.FirebaseUid))
         {
@@ -39,67 +42,101 @@ public class UserService : IUserService
 
         try
         {
-            var user = await _userRepository.GetUserByFirebaseUidAsync(syncRequest.FirebaseUid, includeRoles: true);
+            var user = await _userManager.FindByNameAsync(syncRequest.FirebaseUid);
 
             if (user == null)
             {
-                if(!createNewUser)
+                if (!createNewUser)
                 {
                     _logger.LogError("Failed to fetch user with Firebase UID {FirebaseUid}", syncRequest.FirebaseUid);
                     return null;
                 }
 
-                _logger.LogInformation("User with Firebase UID {FirebaseUid} not found. Creating new user.", syncRequest.FirebaseUid);
+                _logger.LogInformation(
+                    "User with Firebase UID {FirebaseUid} not found. Creating new user.",
+                    syncRequest.FirebaseUid);
+
                 user = new User
                 {
                     FirebaseUid = syncRequest.FirebaseUid,
                     Email = syncRequest.Email,
                     DisplayName = syncRequest.DisplayName
                 };
-                await _userRepository.AddUserAsync(user);
 
-                var defaultRole = await _roleRepository.GetRoleByNameAsync(Constants.Constants.RoleNames.Employee);
-                if (defaultRole != null)
+                var createResult = await _userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
                 {
-                    if (!user.UserRoles.Any(ur => ur.RoleId == defaultRole.Id))
+                    _logger.LogError("Error creating new user: {Errors}",
+                        string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                    return null;
+                }
+
+                const string defaultRoleName = Constants.Constants.RoleNames.Employee;
+                var role = await _roleManager.FindByNameAsync(defaultRoleName);
+                if(role != null)
+                {
+                    var addRoleResult = await _userManager.AddToRoleAsync(user, defaultRoleName);
+                    if (addRoleResult.Succeeded)
                     {
-                         user.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = defaultRole.Id });
-                         _logger.LogInformation("Assigned default role '{DefaultRole}' to new user ID {UserId}", Constants.Constants.RoleNames.Employee, user.Id);
-                         await _userRepository.UpdateUserAsync(user);
+                        _logger.LogInformation(
+                            "Assigned default role '{DefaultRole}' to new user {UserId}",
+                            defaultRoleName, user.Id);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to assign default role '{DefaultRole}' to user {UserId}: {Errors}",
+                            defaultRoleName, user.Id,
+                            string.Join(", ", addRoleResult.Errors.Select(e => e.Description)));
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("Default role '{DefaultRole}' not found. New user ID {UserId} created without a role.", Constants.Constants.RoleNames.Employee, user.Id);
-                }
-
-                user = await _userRepository.GetUserByFirebaseUidAsync(syncRequest.FirebaseUid, includeRoles: true);
-                if(user == null) {
-                    _logger.LogError("Failed to re-fetch newly created user with Firebase UID {FirebaseUid}", syncRequest.FirebaseUid);
-                    return null;
+                    _logger.LogWarning(
+                        "Default role '{DefaultRole}' not found. New user {UserId} created without a role.",
+                        defaultRoleName, user.Id);
                 }
             }
             else
             {
-                _logger.LogInformation("Found existing user ID {UserId} for Firebase UID {FirebaseUid}.", user.Id, syncRequest.FirebaseUid);
-                var updated = false;
-                if (user.Email != syncRequest.Email && !string.IsNullOrEmpty(syncRequest.Email)) 
-                { 
-                    user.Email = syncRequest.Email; 
-                    updated = true; 
+                _logger.LogInformation(
+                    "Found existing user {UserId} for Firebase UID {FirebaseUid}.",
+                    user.Id, syncRequest.FirebaseUid);
+
+                bool updated = false;
+
+                if (!string.IsNullOrEmpty(syncRequest.Email) &&
+                    !string.Equals(user.Email, syncRequest.Email, StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Email = syncRequest.Email;
+                    updated = true;
                 }
-                if (user.DisplayName != syncRequest.DisplayName && !string.IsNullOrEmpty(syncRequest.DisplayName)) 
-                { 
-                    user.DisplayName = syncRequest.DisplayName; 
-                    updated = true; 
+
+                if (!string.IsNullOrEmpty(syncRequest.DisplayName) &&
+                    user.DisplayName != syncRequest.DisplayName)
+                {
+                    user.DisplayName = syncRequest.DisplayName;
+                    updated = true;
                 }
 
                 if (updated)
                 {
-                    await _userRepository.UpdateUserAsync(user);
-                    _logger.LogInformation("Updated details for user ID {UserId}.", user.Id);
+                    var updateResult = await _userManager.UpdateAsync(user);
+                    if (updateResult.Succeeded)
+                    {
+                        _logger.LogInformation("Updated details for user {UserId}.", user.Id);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to update user {UserId}: {Errors}",
+                            user.Id,
+                            string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                    }
                 }
             }
+
+            var roles = await _userManager.GetRolesAsync(user);
 
             var responseDto = new UserResponseDto
             {
@@ -107,100 +144,110 @@ public class UserService : IUserService
                 FirebaseUid = user.FirebaseUid,
                 Email = user.Email,
                 DisplayName = user.DisplayName,
-                Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList() ?? []
+                Roles = [.. roles]
             };
 
             return responseDto;
         }
         catch (DbUpdateException dbEx)
         {
-            _logger.LogError(dbEx, "Database error during SyncFirebaseUserAsync for Firebase UID {FirebaseUid}.", syncRequest.FirebaseUid);
+            _logger.LogError(dbEx, "Database error during SyncFirebaseUserAsync for Firebase UID {FirebaseUid}.",
+                syncRequest.FirebaseUid);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during SyncFirebaseUserAsync for Firebase UID {FirebaseUid}.", syncRequest.FirebaseUid);
+            _logger.LogError(ex, "Unexpected error during SyncFirebaseUserAsync for Firebase UID {FirebaseUid}.",
+                syncRequest.FirebaseUid);
             return null;
         }
     }
 
     public async Task<bool> AssignRoleAsync(int userId, string roleName)
     {
-         if (string.IsNullOrWhiteSpace(roleName))
-         {
-             _logger.LogWarning("AssignRoleAsync called with empty role name for user ID {UserId}.", userId);
-             return false;
-         }
-
-        try
+        if (string.IsNullOrWhiteSpace(roleName))
         {
-            await using var ctx = _contextFactory.CreateDbContext();
-            var user = await ctx.Users.Include(u => u.UserRoles).FirstOrDefaultAsync(u => u.Id == userId);
-            if (user == null)
-            {
-                _logger.LogWarning("AssignRoleAsync: User with ID {UserId} not found.", userId);
-                return false;
-            }
+            _logger.LogWarning(
+                "AssignRoleAsync called with empty role name for user ID {UserId}.",
+                userId);
+            return false;
+        }
 
-            var role = await _roleRepository.GetRoleByNameAsync(roleName);
-            if (role == null)
-            {
-                _logger.LogWarning("AssignRoleAsync: Role '{RoleName}' not found.", roleName);
-                return false;
-            }
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            _logger.LogWarning(
+                "AssignRoleAsync: User with ID {UserId} not found.",
+                userId);
+            return false;
+        }
 
-            if (!user.UserRoles.Any(ur => ur.RoleId == role.Id))
-            {
-                user.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
-                await ctx.SaveChangesAsync();
-                _logger.LogInformation("Assigned role '{RoleName}' to user ID {UserId}", role.Name, user.Id);
-            }
-            else
-            {
-                 _logger.LogInformation("User ID {UserId} already has role '{RoleName}'", user.Id, role.Name);
-            }
+        if (!await _roleManager.RoleExistsAsync(roleName))
+        {
+            _logger.LogWarning(
+                "AssignRoleAsync: Role '{RoleName}' not found.",
+                roleName);
+            return false;
+        }
+
+        if (await _userManager.IsInRoleAsync(user, roleName))
+        {
+            _logger.LogInformation(
+                "User ID {UserId} already has role '{RoleName}'",
+                userId, roleName);
             return true;
         }
-        catch (DbUpdateException dbEx)
+
+        var result = await _userManager.AddToRoleAsync(user, roleName);
+        if (result.Succeeded)
         {
-             _logger.LogError(dbEx, "Database error during AssignRoleAsync for user ID {UserId} and role {RoleName}.", userId, roleName);
-             return false;
+            _logger.LogInformation(
+                "Assigned role '{RoleName}' to user ID {UserId}",
+                roleName, userId);
+            return true;
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Unexpected error during AssignRoleAsync for user ID {UserId} and role {RoleName}.", userId, roleName);
+            _logger.LogError(
+                "Failed to assign role '{RoleName}' to user ID {UserId}: {Errors}",
+                roleName, userId, string.Join(", ", result.Errors.Select(e => e.Description)));
             return false;
         }
     }
 
-     public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync()
-     {
-         try
+    public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync()
+    {
+        try
         {
-            await using var ctx = _contextFactory.CreateDbContext();
-            var users = await ctx.Users
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
+            var users = await _userManager.Users
                 .OrderBy(u => u.DisplayName ?? u.Email)
                 .ToListAsync();
 
-             return users.Select(user => new UserResponseDto
-             {
-                 Id = user.Id,
-                 FirebaseUid = user.FirebaseUid,
-                 Email = user.Email,
-                 DisplayName = user.DisplayName,
-                 Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList() ?? new List<string>()
-             });
-         }
-         catch (Exception ex)
-         {
-            _logger.LogError(ex, "Error retrieving all users.");
-            throw;
-         }
-     }
+            var result = new List<UserResponseDto>();
 
-    // --- Implementation for CreateUserAsync ---
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+
+                result.Add(new UserResponseDto
+                {
+                    Id = user.Id,
+                    FirebaseUid = user.FirebaseUid,
+                    Email = user.Email,
+                    DisplayName = user.DisplayName,
+                    Roles = [.. roles]
+                });
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving all users via UserManager.");
+            throw;
+        }
+    }
+
     public async Task<UserResponseDto?> CreateUserAsync(CreateUserRequestDto createUserDto)
     {
         if (createUserDto?.Email == null || createUserDto.Password == null)
@@ -211,13 +258,12 @@ public class UserService : IUserService
 
         try
         {
-            // Step 1: Create user in Firebase Authentication
             var userArgs = new UserRecordArgs()
             {
                 Email = createUserDto.Email,
                 Password = createUserDto.Password,
                 DisplayName = createUserDto.DisplayName,
-                EmailVerified = false, // Or true depending on your flow
+                EmailVerified = false,
                 Disabled = false
             };
 
@@ -231,24 +277,21 @@ public class UserService : IUserService
                 DisplayName = firebaseUserRecord.DisplayName
             };
 
-            var userResponse = await SyncFirebaseUserAsync(syncDto);
+            var userResponse = await SyncFirebaseUserAsync(syncDto, true);
 
             if (userResponse == null)
             {
                 _logger.LogError("Failed to sync newly created Firebase user {FirebaseUid} to local DB.", firebaseUserRecord.Uid);
-                try 
-                { 
-                    await _firebaseAuth.DeleteUserAsync(firebaseUserRecord.Uid); 
-                } 
-                catch (Exception deleteEx) 
-                { 
-                    _logger.LogError(deleteEx, "Failed to delete Firebase user {FirebaseUid} after DB sync failure.", firebaseUserRecord.Uid); 
+                try
+                {
+                    await _firebaseAuth.DeleteUserAsync(firebaseUserRecord.Uid);
+                }
+                catch (Exception deleteEx)
+                {
+                    _logger.LogError(deleteEx, "Failed to delete Firebase user {FirebaseUid} after DB sync failure.", firebaseUserRecord.Uid);
                 }
                 return null;
             }
-
-            // Optional Step 3: Assign a specific initial role (if DTO included it)
-            // ... (logic for assigning non-default role if needed) ...
 
             return userResponse;
         }
@@ -263,7 +306,4 @@ public class UserService : IUserService
             return null;
         }
     }
-    // --- End of CreateUserAsync ---
-
-} // End of UserService class
-// End of namespace
+}

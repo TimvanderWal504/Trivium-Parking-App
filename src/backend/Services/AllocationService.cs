@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using TriviumParkingApp.Backend.DTOs;
 using TriviumParkingApp.Backend.Models;
@@ -10,17 +11,20 @@ public class AllocationService : IAllocationService
     private readonly IAllocationRepository _allocationRepository;
     private readonly IParkingRequestRepository _requestRepository;
     private readonly IParkingLotRepository _parkingLotRepository;
+    private readonly UserManager<User> _userManager;
     private readonly ILogger<AllocationService> _logger;
 
     public AllocationService(
         IAllocationRepository allocationRepository,
         IParkingRequestRepository requestRepository,
-        IParkingLotRepository parkingLotRepository,
+        IParkingLotRepository parkingLotRepository, 
+        UserManager<User> userManager,
         ILogger<AllocationService> logger)
     {
         _allocationRepository = allocationRepository;
         _requestRepository = requestRepository;
         _parkingLotRepository = parkingLotRepository;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -40,75 +44,102 @@ public class AllocationService : IAllocationService
 
     public async Task<IEnumerable<Allocation>> RunDailyAllocationAsync(DateOnly date)
     {
-        // 1. Get all requests for that dag
+        // 1. Retrieve all parking requests (including user) for the specified date
         var requests = await _requestRepository.GetByDateAsync(date);
 
-        // 2. Get existing allocations for that dag
+        // 2. Retrieve existing allocations for that date
         var existingAllocs = await _allocationRepository.GetByDateAsync(date);
 
-        // 3. Filter requests: only the userId's not allocated yet, must be allocated.
-        var unallocatedRequests = requests
-            .Where(r => !existingAllocs.Select(x => x.UserId).ToList().Contains(r.UserId))
+        // 3. Filter out requests for users who already have an allocation
+        var unallocated = requests
+            .Where(r => !existingAllocs.Select(a => a.UserId).Contains(r.UserId))
             .ToList();
 
-        // 3. When all users has been allocated already, return emtpy
-        if (unallocatedRequests.Count == 0)
-            return [];
+        if (unallocated.Count == 0)
+            return Array.Empty<Allocation>();
 
-        var occupiedSpaceIds = new HashSet<int>(existingAllocs.Select(a => a.ParkingSpaceId));
+        // 4. Determine each user's roles via UserManager
+        var rolesByUser = new Dictionary<int, IList<string>>();
+        var userIds = unallocated.Select(r => r.UserId).Distinct();
+        foreach (var uid in userIds)
+        {
+            // The User.UserName matches FirebaseUid
+            var appUser = unallocated.First(r => r.UserId == uid).User;
+            var roles = await _userManager.GetRolesAsync(appUser);
+            rolesByUser[uid] = roles;
+        }
 
-        // 4. Get all Parkinglots + spaces
-        var parkingLots = await _parkingLotRepository.GetAllAsync(true);
+        // 5. Track occupied parking space IDs
+        var occupiedSpaceIds = existingAllocs
+            .Select(a => a.ParkingSpaceId)
+            .ToHashSet();
 
-        // 5. Sort de requests on rol-priority en FIFO
-        var sortedRequests = unallocatedRequests
-            .OrderBy(r => r.User.UserRoles.Select(ur => ur.Role.Priority))
-            .ThenBy(r => r.RequestTimestamp)
+        // 6. Retrieve all parking lots (with spaces and role mappings)
+        var parkingLots = await _parkingLotRepository.GetAllAsync(includeSpaces: true);
+        // Ensure RoleParkingLots is also included in the repository implementation
+
+        // 7. Order unallocated requests by timestamp (FIFO)
+        var remaining = unallocated
+            .OrderBy(r => r.RequestTimestamp)
             .ToList();
 
-        var remaining = new List<ParkingRequest>(sortedRequests);
         var newAllocs = new List<Allocation>();
 
-        // 6. Loop through lots in order of priority
+        // 8. Iterate through lots by ascending lot.Priority (lower = higher priority)
         foreach (var lot in parkingLots.OrderBy(l => l.Priority))
         {
             if (remaining.Count == 0)
                 break;
 
-            // 6a. Determine free spaces
+            // 8a. Identify free spaces in the current lot
             var freeSpaces = lot.ParkingSpaces
                 .Where(s => !occupiedSpaceIds.Contains(s.Id))
                 .ToList();
+            if (freeSpaces.Count == 0)
+                continue;
 
-            // 6b. Determine how many people can be put here.
-            var count = Math.Min(remaining.Count, freeSpaces.Count);
-            var forThisLotReqs = remaining.Take(count).ToList();
-            var forThisLotSpaces = freeSpaces.Take(count).ToList();
+            // 8b. Filter requests eligible for this lot based on role mappings
+            var eligible = remaining
+                .Where(req => rolesByUser[req.UserId]
+                    .Any(roleName =>
+                        lot.RoleParkingLots
+                           .Select(rpl => rpl.Role.Name)
+                           .Contains(roleName)))
+                .ToList();
 
-            // 6c. Create allocations
-            var todayAllocs = forThisLotReqs
-            .Select((req, idx) => new Allocation
+            if (eligible.Count == 0)
+                continue;
+
+            // 8c. Determine how many allocations can be made here
+            var assignCount = Math.Min(eligible.Count, freeSpaces.Count);
+            var toAssignRequests = eligible.Take(assignCount).ToList();
+            var toAssignSpaces = freeSpaces.Take(assignCount).ToList();
+
+            // 8d. Create allocation objects for this lot
+            var todayAllocs = toAssignRequests
+                .Select((req, idx) => new Allocation
                 {
                     UserId = req.UserId,
-                    ParkingSpaceId = forThisLotSpaces[idx].Id,
+                    ParkingSpaceId = toAssignSpaces[idx].Id,
                     AllocatedDate = date,
                     AllocationTimestamp = DateTimeOffset.UtcNow
                 })
-            .ToList();
+                .ToList();
 
             newAllocs.AddRange(todayAllocs);
 
-            // 6d. remove requests from remaining requestsn
-            remaining = remaining.Skip(count).ToList();
+            // 8e. Update remaining requests and occupied spaces
+            var assignedUserIds = toAssignRequests.Select(r => r.UserId).ToHashSet();
+            remaining = remaining
+                .Where(r => !assignedUserIds.Contains(r.UserId))
+                .ToList();
 
-            // 6e. Mark these spaces as occupied
-            foreach (var a in todayAllocs)
-                occupiedSpaceIds.Add(a.ParkingSpaceId);
+            foreach (var alloc in todayAllocs)
+                occupiedSpaceIds.Add(alloc.ParkingSpaceId);
         }
 
-        // 7. Inject into the database and send notifications
+        // 9. Persist new allocations and return the list
         await _allocationRepository.AddRangeAsync(newAllocs);
-
         return newAllocs;
     }
 }

@@ -1,5 +1,6 @@
 using FirebaseAdmin;
 using FirebaseAdmin.Auth;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.Functions.Worker.Middleware;
@@ -7,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
+using TriviumParkingApp.Backend.Models;
+using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 
 namespace TriviumParkingApp.Backend.Middleware;
 
@@ -16,11 +19,13 @@ namespace TriviumParkingApp.Backend.Middleware;
 public class FirebaseAuthMiddleware : IFunctionsWorkerMiddleware
 {
     private readonly ILogger<FirebaseAuthMiddleware> _logger;
+    private readonly UserManager<Models.User> _userManager;
     private readonly FirebaseAuth _firebaseAuth;
 
-    public FirebaseAuthMiddleware(ILogger<FirebaseAuthMiddleware> logger, FirebaseApp firebaseApp)
+    public FirebaseAuthMiddleware(ILogger<FirebaseAuthMiddleware> logger, FirebaseApp firebaseApp, UserManager<Models.User> userManager)
     {
         _logger = logger;
+        _userManager = userManager;
         _firebaseAuth = FirebaseAuth.GetAuth(firebaseApp);
     }
 
@@ -57,8 +62,14 @@ public class FirebaseAuthMiddleware : IFunctionsWorkerMiddleware
             _logger.LogInformation("FirebaseAuthMiddleware: Token verified successfully for UID: {Uid}", uid);
 
             var claims = decodedToken.Claims.Select(c => new Claim(c.Key, c.Value.ToString() ?? "")).ToList();
-            if (!claims.Any(c => c.Type == ClaimTypes.NameIdentifier)) claims.Add(new Claim(ClaimTypes.NameIdentifier, uid));
-            if (decodedToken.Claims.TryGetValue("email", out var email)) claims.Add(new Claim(ClaimTypes.Email, email.ToString() ?? ""));
+            var user = await _userManager.FindByNameAsync(uid);
+            if (user != null)
+            {
+                if (!claims.Any(c => c.Type == ClaimTypes.NameIdentifier))
+                    claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+                if (decodedToken.Claims.TryGetValue("email", out var email))
+                    claims.Add(new Claim(ClaimTypes.Email, email.ToString() ?? ""));
+            }
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Firebase"));
             context.Features.Set(principal); 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TriviumParkingApp.Backend.Data;
 using TriviumParkingApp.Backend.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace TriviumParkingApp.Backend.Repositories;
 
@@ -45,11 +46,9 @@ public class ParkingRequestRepository : IParkingRequestRepository
     {
         await using var ctx = _contextFactory.CreateDbContext();
         return await ctx.ParkingRequests
-            .Include(r => r.User)
-            .ThenInclude(u => u.UserRoles)
-            .ThenInclude(ur => ur.Role)
+            .Include(pr => pr.User)
             .Where(pr => pr.RequestedDate == startDate)
-            .OrderBy(pr => pr.RequestedDate)
+            .OrderBy(pr => pr.RequestTimestamp)
             .ToListAsync();
     }
 

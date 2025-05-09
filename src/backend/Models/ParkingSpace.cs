@@ -16,8 +16,6 @@ public class ParkingSpace
     [ForeignKey("ParkingLotId")]
     public virtual ParkingLot ParkingLot { get; set; } = null!;
 
-    public int IsPrioritySpace { get; set; }
-
     [MaxLength(255)]
     public string? Notes { get; set; }
 

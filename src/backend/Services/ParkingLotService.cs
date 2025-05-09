@@ -48,7 +48,6 @@ public class ParkingLotService : IParkingLotService
                 Id = ps.Id,
                 SpaceNumber = ps.SpaceNumber,
                 ParkingLotId = ps.ParkingLotId,
-                IsPrioritySpace = ps.IsPrioritySpace,
                 Notes = ps.Notes
             }).ToList();
         }

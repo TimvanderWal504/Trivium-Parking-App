@@ -1,16 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import {
-  filter,
-  map,
-  skip,
-  skipWhile,
-  take,
-  tap,
-  withLatestFrom,
-} from 'rxjs/operators';
+import { filter, take, tap, withLatestFrom } from 'rxjs/operators';
 import { ResourceStatus } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
 import { AppUser, AuthService } from '../../services/auth.service';
 
 @Component({

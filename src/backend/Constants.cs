@@ -2,11 +2,6 @@
 
 public static class Constants
 {
-    public static class Context
-    {
-        public const string UserId = "UserId";
-    }
-
     public static class RoleNames
     {
         public const string Visitor = "Visitor";

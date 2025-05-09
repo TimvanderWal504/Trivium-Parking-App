@@ -17,7 +17,9 @@ public class ParkingLotRepository : IParkingLotRepository
     {
         await using var context = _contextFactory.CreateDbContext();
 
-        IQueryable<ParkingLot> query = context.ParkingLots;
+        IQueryable<ParkingLot> query = context.ParkingLots
+            .Include(pl => pl.RoleParkingLots)
+            .ThenInclude(rpl => rpl.Role);
 
         if (includeSpaces)
             query = query.Include(pl => pl.ParkingSpaces);

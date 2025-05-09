@@ -32,8 +32,8 @@ public class AuthFunctions
         HttpResponseData response;
 
         // --- Get User Info from Middleware ---
-        var firebaseUid = context.GetClaimValue(ClaimTypes.NameIdentifier);
-        var email = context.GetClaimValue(ClaimTypes.Email);
+        var firebaseUid = context.GetClaimValue("user_id");
+        var email = context.GetClaimValue("email");
         var displayName = context.GetClaimValue("name") ?? context.GetClaimValue(ClaimTypes.GivenName);
 
         if (string.IsNullOrEmpty(firebaseUid))

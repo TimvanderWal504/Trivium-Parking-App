@@ -1,16 +1,10 @@
-using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 
 namespace TriviumParkingApp.Backend.Models;
 
-public class Role
+public class Role : IdentityRole<int>
 {
-    public int Id { get; set; }
-
-    [Required]
-    [MaxLength(50)]
-    public string Name { get; set; } = string.Empty;
-
     public int Priority { get; set; }
 
-    public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public virtual ICollection<RoleParkingLot> RoleParkingLots { get; set; } = new List<RoleParkingLot>();
 }

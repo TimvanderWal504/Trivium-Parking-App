@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace backend.Data.Migration
+namespace TriviumParkingApp.Backend.Data.Migration
 {
     /// <inheritdoc />
     public partial class InitialCreate : Microsoft.EntityFrameworkCore.Migrations.Migration // Fully qualify the base class

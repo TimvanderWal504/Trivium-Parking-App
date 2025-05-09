@@ -33,12 +33,7 @@ export class LoginComponent implements OnInit {
   public mainImage = 'assets/ParkingOverview.jpeg';
   private fb = inject(FormBuilder);
   private afAuth = inject(Auth);
-  private authService = inject(AuthService);
   private router = inject(Router);
-  private route = inject(ActivatedRoute);
-
-  private status$ = toObservable(this.authService.appUserResource.status);
-  private syncSub?: Subscription;
 
   ngOnInit(): void {
     this.loginForm = this.fb.group({

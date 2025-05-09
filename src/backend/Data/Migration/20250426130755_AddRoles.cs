@@ -4,7 +4,7 @@ using static TriviumParkingApp.Backend.Constants.Constants;
 
 #nullable disable
 
-namespace backend.Data.Migration
+namespace TriviumParkingApp.Backend.Data.Migration
 {
     /// <inheritdoc />
     public partial class AddRoles : Microsoft.EntityFrameworkCore.Migrations.Migration

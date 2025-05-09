@@ -15,4 +15,6 @@ public class ParkingLot
     public int Priority { get; set; } = 0;
 
     public virtual ICollection<ParkingSpace> ParkingSpaces { get; set; } = new List<ParkingSpace>();
+    public virtual ICollection<RoleParkingLot> RoleParkingLots { get; set; } = new List<RoleParkingLot>();
+
 }
