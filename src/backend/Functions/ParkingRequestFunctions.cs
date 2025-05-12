@@ -1,4 +1,4 @@
-using backend.Extensions;
+using TriviumParkingApp.Backend.Extensions;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -14,13 +14,16 @@ public class ParkingRequestFunctions
 {
     private readonly ILogger<ParkingRequestFunctions> _logger;
     private readonly IParkingRequestService _requestService;
+    private readonly IAllocationService _allocationService;
 
     public ParkingRequestFunctions(
         ILogger<ParkingRequestFunctions> logger,
-        IParkingRequestService requestService)
+        IParkingRequestService requestService,
+        IAllocationService allocationService)
     {
         _logger = logger;
         _requestService = requestService;
+        _allocationService = allocationService;
     }
 
     [Function("CreateParkingRequest")]
@@ -46,21 +49,25 @@ public class ParkingRequestFunctions
             if (requestDto == null || requestDto.RequestedDate == null)
             {
                 response = req.CreateResponse(HttpStatusCode.BadRequest);
-                await response.WriteStringAsync("Invalid request body. Required format: { \"requestedDate\": \"YYYY-MM-DD\" }");
+                await response.WriteStringAsync("Invalid request body.");
                 return response;
             }
 
             var createdRequestDto = await _requestService.CreateRequestAsync(internalUserId, requestDto);
 
-            if (createdRequestDto != null)
-            {
-                response = req.CreateResponse(HttpStatusCode.Created);
-                await response.WriteAsJsonAsync(createdRequestDto);
-            }
-            else
+            if (createdRequestDto == null)
             {
                 response = req.CreateResponse(HttpStatusCode.BadRequest);
                 await response.WriteStringAsync("Failed to create parking request.");
+            }
+            else
+            {
+
+                if (createdRequestDto!.RequestedDate == DateOnly.FromDateTime(DateTime.UtcNow))
+                    await _allocationService.CreateUserAllocationAsync(createdRequestDto);
+
+                response = req.CreateResponse(HttpStatusCode.Created);
+                await response.WriteAsJsonAsync(createdRequestDto);
             }
         }
         catch (JsonException jsonEx)

@@ -17,6 +17,8 @@ public class AllocationResponseDto
     public int ParkingLotId { get; set; }
     public string ParkingLotName { get; set; } = string.Empty;
     public string? ParkingLotAddress { get; set; }
+    public string ParkingLotCity { get; set; }
+    public string ParkingLotCountryIsoCode { get; set; }
 
     public AllocationResponseDto(Allocation allocation)
     {
@@ -30,5 +32,7 @@ public class AllocationResponseDto
         ParkingLotId = allocation.ParkingSpace?.ParkingLotId ?? 0;
         ParkingLotName = allocation.ParkingSpace?.ParkingLot?.Name ?? "N/A";
         ParkingLotAddress = allocation.ParkingSpace?.ParkingLot?.Address;
+        ParkingLotCity = allocation.ParkingSpace?.ParkingLot?.City ?? "N/A";
+        ParkingLotCountryIsoCode = allocation.ParkingSpace?.ParkingLot?.CountryIsoCode ?? "NL";
     }
 }

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace TriviumParkingApp.Backend.Models;
+
 public class ParkingLot
 {
     public int Id { get; set; }
@@ -12,7 +13,13 @@ public class ParkingLot
     [MaxLength(255)]
     public string? Address { get; set; }
 
-    public int Priority { get; set; } = 0;
+    public int Priority { get; set; } = 0; 
+    
+    [MaxLength(2)]
+    public string CountryIsoCode { get; set; } = "NL";
+
+    [Required, MaxLength(100)]
+    public string City { get; set; } = string.Empty;
 
     public virtual ICollection<ParkingSpace> ParkingSpaces { get; set; } = new List<ParkingSpace>();
     public virtual ICollection<RoleParkingLot> RoleParkingLots { get; set; } = new List<RoleParkingLot>();

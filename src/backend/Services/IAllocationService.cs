@@ -20,4 +20,13 @@ public interface IAllocationService
     /// <param name="startOfWeek">The date to allocate for</param>
     /// <returns>A collection of the newly created allocations.</returns>
     Task<IEnumerable<Allocation>> RunDailyAllocationAsync(DateOnly date);
+
+    /// <summary>
+    /// Create an allocation for a specific user for a specific parking request
+    /// </summary>
+    /// <param name="userId">The internal database ID of the user.</param>
+    /// <param name="startDate">The start date of the range.</param>
+    /// <param name="endDate">The end date of the range.</param>
+    /// <returns>A collection of AllocationResponseDto.</returns>
+    Task<AllocationResponseDto?> CreateUserAllocationAsync(ParkingRequest request);
 }

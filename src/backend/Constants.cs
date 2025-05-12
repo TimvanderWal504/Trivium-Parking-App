@@ -7,6 +7,7 @@ public static class Constants
         public const string Visitor = "Visitor";
         public const string Manager = "Manager";
         public const string Employee = "Employee";
+        public const string Admin = "Admin";
     }
 
     public static class ParkingLotNames

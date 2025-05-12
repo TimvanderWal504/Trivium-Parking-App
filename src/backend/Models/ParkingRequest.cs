@@ -15,6 +15,12 @@ public class ParkingRequest
     [Required]
     public DateOnly RequestedDate { get; set; }
 
-    public DateTimeOffset RequestTimestamp { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset RequestTimestamp { get; set; } = DateTimeOffset.UtcNow; 
+    
+    [Required, MaxLength(2)]
+    public string CountryIsoCode { get; set; } = string.Empty;
+
+    [Required, MaxLength(100)]
+    public string City { get; set; } = string.Empty;
 
 }

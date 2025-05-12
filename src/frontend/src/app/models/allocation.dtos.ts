@@ -9,4 +9,6 @@ export interface AllocationResponseDto {
   parkingLotId: number;
   parkingLotName: string;
   parkingLotAddress?: string;
+  parkingLotCity: string;
+  parkingLotCountryIsoCode: string;
 }

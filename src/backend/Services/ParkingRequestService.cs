@@ -19,12 +19,11 @@ public class ParkingRequestService : IParkingRequestService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ParkingRequestResponseDto>> GetUserRequestsAsync(int userId, DateOnly startDate, DateOnly endDate)
+    public async Task<IEnumerable<ParkingRequest>> GetUserRequestsAsync(int userId, DateOnly startDate, DateOnly endDate)
     {
         try
         {
-            var requests = await _requestRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
-            return requests.Select(MapRequestToDto);
+            return await _requestRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
         }
         catch (Exception ex)
         {
@@ -33,7 +32,7 @@ public class ParkingRequestService : IParkingRequestService
         }
     }
 
-    public async Task<ParkingRequestResponseDto?> CreateRequestAsync(int userId, CreateParkingRequestDto requestDto)
+    public async Task<ParkingRequest?> CreateRequestAsync(int userId, CreateParkingRequestDto requestDto)
     {
         if (requestDto.RequestedDate == null)
         {
@@ -45,16 +44,18 @@ public class ParkingRequestService : IParkingRequestService
         {
             UserId = userId,
             RequestedDate = requestDto.RequestedDate.Value,
-            RequestTimestamp = DateTimeOffset.UtcNow
+            RequestTimestamp = DateTimeOffset.UtcNow,
+            City = requestDto.City,
+            CountryIsoCode = requestDto.CountryIsoCode,
         };
 
         try
         {
-            await _requestRepository.AddAsync(newRequest);
+            newRequest = await _requestRepository.AddAsync(newRequest);
 
             _logger.LogInformation("Created parking request ID {RequestId} for user {UserId} for date {RequestedDate}.", newRequest.Id, userId, newRequest.RequestedDate);
 
-            return MapRequestToDto(newRequest);
+            return newRequest;
         }
         catch (DbUpdateException dbEx)
         {
@@ -105,16 +106,5 @@ public class ParkingRequestService : IParkingRequestService
              _logger.LogError(ex, "Unexpected error deleting parking request ID {RequestId}.", requestId);
              return false;
         }
-    }
-
-    private ParkingRequestResponseDto MapRequestToDto(ParkingRequest request)
-    {
-        return new ParkingRequestResponseDto
-        {
-            Id = request.Id,
-            UserId = request.UserId,
-            RequestedDate = request.RequestedDate,
-            RequestTimestamp = request.RequestTimestamp
-        };
     }
 }

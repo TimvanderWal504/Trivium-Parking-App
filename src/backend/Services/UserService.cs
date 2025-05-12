@@ -274,7 +274,8 @@ public class UserService : IUserService
             {
                 FirebaseUid = firebaseUserRecord.Uid,
                 Email = firebaseUserRecord.Email,
-                DisplayName = firebaseUserRecord.DisplayName
+                DisplayName = firebaseUserRecord.DisplayName,
+                CountryIsoCode = createUserDto.CountryIsoCode,
             };
 
             var userResponse = await SyncFirebaseUserAsync(syncDto, true);

@@ -17,7 +17,10 @@ public class User : IdentityUser<int>
     public override string? Email { get; set; }
 
     [MaxLength(100)]
-    public string? DisplayName { get; set; } 
+    public string? DisplayName { get; set; }
+
+    [MaxLength(2)]
+    public string CountryIsoCode { get; set; } = "NL";
 
     public virtual ICollection<ParkingRequest> ParkingRequests { get; set; } = new List<ParkingRequest>();
     public virtual ICollection<Allocation> Allocations { get; set; } = new List<Allocation>();

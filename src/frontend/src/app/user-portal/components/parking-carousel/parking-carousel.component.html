@@ -7,7 +7,7 @@
   <!-- Error state -->
   <ng-container *ngIf="errorMessage$ | async as error">
     <div
-      *ngIf="error && !(isLoading$ | async)"
+      *ngIf="error"
       class="text-center text-red-600 bg-red-100 p-3 rounded-md border border-red-300"
     >
       {{ error }}
@@ -16,69 +16,60 @@
 
   <!-- Data state -->
   <ng-container *ngIf="!(isLoading$ | async) && !(errorMessage$ | async)">
-    <ng-container *ngIf="parkingDays$ | async as days">
-      <ng-container *ngIf="days.length > 0; else noDays">
-        <swiper-container
-          #swiperEl
-          [attr.slides-per-view]="slidesPerView$ | async"
-          space-between="20"
-          centeredSlides
-          scrollbar
-          observer
-          observeParents
-          class="[--swiper-scrollbar-bg-color:#e5e7eb] [--swiper-scrollbar-drag-bg-color:#84ad28]"
-        >
-          <swiper-slide *ngFor="let day of days; let i = index">
+    <ng-container *ngIf="(parkingDays$ | async)?.length; else noDays">
+      <swiper-container
+        #swiperEl
+        [attr.slides-per-view]="slidesPerView$ | async"
+        space-between="20"
+        centeredSlides
+        scrollbar
+        observer
+        observeParents
+        class="[--swiper-scrollbar-bg-color:#e5e7eb] [--swiper-scrollbar-drag-bg-color:#84ad28]"
+      >
+        <swiper-slide *ngFor="let day of parkingDays$ | async">
+          <div
+            class="flex flex-col items-center justify-between p-4 mb-4 border rounded-lg transition-shadow hover:shadow-md"
+            [ngClass]="{
+              'border-primary': day.isRequested,
+              'border-secondary/20': !day.isRequested,
+              'opacity-50': day.isLoading
+            }"
+          >
             <div
-              #slide
-              class="flex flex-col items-center justify-between p-4 mb-4 border rounded-lg transition-shadow hover:shadow-md"
-              [ngClass]="{
-                'border-primary': day.isRequested,
-                'border-secondary/20': !day.isRequested,
-                'opacity-50': day.isLoading
-              }"
+              class="text-xs font-medium uppercase text-gray-500 mb-1 bg-white"
             >
-              <div
-                class="text-xs font-medium uppercase text-gray-500 mb-1 bg-white"
-              >
-                {{
-                  isSameDate(day.date, today)
-                    ? "Today"
-                    : isSameDate(day.date, tomorrow)
-                    ? "Tomorrow"
-                    : (day.date | date : "EEEE")
-                }}
-              </div>
-
-              <div class="text-2xl font-mono font-semibold text-gray-800 mb-4">
-                {{ day.date | date : "d MMMM" }}
-              </div>
-
-              <div>
-                <input
-                  id="chk-{{ day.date | date : 'yyyyMMdd' }}"
-                  type="checkbox"
-                  class="form-checkbox h-6 w-6"
-                  [ngClass]="{
-                    'accent-secondary': day.isRequested,
-                  }"
-                  [checked]="day.isRequested"
-                  [disabled]="day.isLoading"
-                  (change)="toggleRequest(day, i)"
-                />
-                <label
-                  for="chk-{{ day.date | date : 'yyyyMMdd' }}"
-                  class="sr-only"
-                >
-                  Request to park for {{ day.date | date : "longDate" }}
-                </label>
-              </div>
+              {{
+                isSameDate(day.date, today)
+                  ? "Today"
+                  : isSameDate(day.date, tomorrow)
+                  ? "Tomorrow"
+                  : (day.date | date : "EEEE")
+              }}
             </div>
-          </swiper-slide>
-        </swiper-container>
-      </ng-container>
+
+            <div class="text-2xl font-mono font-semibold text-gray-800 mb-4">
+              {{ day.date | date : "d MMMM" }}
+            </div>
+
+            <div>
+              <input
+                type="checkbox"
+                class="form-checkbox h-6 w-6"
+                [ngClass]="{ 'accent-secondary': day.isRequested }"
+                [checked]="day.isRequested"
+                [disabled]="day.isLoading"
+                (change)="toggleRequest(day)"
+              />
+              <label class="sr-only">
+                Request to park for {{ day.date | date : "longDate" }}
+              </label>
+            </div>
+          </div>
+        </swiper-slide>
+      </swiper-container>
     </ng-container>
-    <!-- Fallback wanneer er geen dagen zijn -->
+
     <ng-template #noDays>
       <div class="text-center text-gray-500 py-4">
         No requestable days found.

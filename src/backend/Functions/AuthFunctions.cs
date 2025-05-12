@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Security.Claims; // Added for ClaimsPrincipal
 using TriviumParkingApp.Backend.DTOs;
 using TriviumParkingApp.Backend.Services;
-using backend.Extensions;
+using TriviumParkingApp.Backend.Extensions;
 
 namespace TriviumParkingApp.Backend.Functions;
 

@@ -16,13 +16,11 @@ public class ParkingLotService : IParkingLotService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ParkingLotDto>> GetAllParkingLotsAsync(bool includeSpaces = false)
+    public async Task<IEnumerable<ParkingLot>> GetAllParkingLotsAsync(bool includeSpaces = false)
     {
         try
         {
-            var parkingLots = await _parkingLotRepository.GetAllAsync(includeSpaces);
-
-            return parkingLots.Select(pl => MapParkingLotToDto(pl, includeSpaces));
+            return await _parkingLotRepository.GetAllAsync(includeSpaces);
         }
         catch (Exception ex)
         {
@@ -31,27 +29,4 @@ public class ParkingLotService : IParkingLotService
         }
     }
 
-    private ParkingLotDto MapParkingLotToDto(ParkingLot lot, bool includeSpaces)
-    {
-        var dto = new ParkingLotDto
-        {
-            Id = lot.Id,
-            Name = lot.Name,
-            Address = lot.Address,
-            Priority = lot.Priority
-        };
-
-        if (includeSpaces && lot.ParkingSpaces != null)
-        {
-            dto.ParkingSpaces = lot.ParkingSpaces.Select(ps => new ParkingSpaceDto
-            {
-                Id = ps.Id,
-                SpaceNumber = ps.SpaceNumber,
-                ParkingLotId = ps.ParkingLotId,
-                Notes = ps.Notes
-            }).ToList();
-        }
-
-        return dto;
-    }
 }

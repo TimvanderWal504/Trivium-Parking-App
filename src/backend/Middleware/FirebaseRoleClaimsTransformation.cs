@@ -50,6 +50,11 @@ public class FirebaseRoleClaimsTransformation : IClaimsTransformation
             if (!identity.HasClaim(ClaimTypes.Role, role))
                 identity.AddClaim(new Claim(ClaimTypes.Role, role));
 
+        if (identityUser != null && !identity.HasClaim(ClaimTypes.Country, identityUser.CountryIsoCode))
+        {
+            identity.AddClaim(new Claim(ClaimTypes.Country, identityUser.CountryIsoCode));
+        }
+
         return principal;
     }
 }

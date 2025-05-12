@@ -1,5 +1,7 @@
 export interface CreateParkingRequestDto {
   requestedDate: string;
+  countryIsoCode: string;
+  city: string;
 }
 
 export interface ParkingRequestResponseDto {
@@ -7,4 +9,6 @@ export interface ParkingRequestResponseDto {
   userId: number;
   requestedDate: string;
   requestTimestamp: string;
+  countryIsoCode: string;
+  city: string;
 }

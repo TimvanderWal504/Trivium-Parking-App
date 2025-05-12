@@ -23,3 +23,4 @@ public class Allocation
     public DateTimeOffset AllocationTimestamp { get; set; } = DateTimeOffset.UtcNow; 
 
 }
+

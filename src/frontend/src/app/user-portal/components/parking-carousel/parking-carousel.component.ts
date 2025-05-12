@@ -4,8 +4,9 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   ElementRef,
-  viewChild,
-  viewChildren,
+  ViewChild,
+  ViewChildren,
+  OnInit,
 } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
@@ -18,24 +19,30 @@ import {
   Subject,
   merge,
   of,
-  Observable,
   fromEvent,
+  defer,
+  iif,
+  Observable,
 } from 'rxjs';
 import {
-  catchError,
-  finalize,
-  map,
-  shareReplay,
-  startWith,
   switchMap,
+  map,
+  catchError,
+  startWith,
   tap,
   filter,
   distinctUntilChanged,
   take,
-  withLatestFrom,
 } from 'rxjs/operators';
+import { CreateParkingRequestDto } from '../../../models/parking-request.dtos';
 
 register();
+
+interface State {
+  days: ParkingDay[];
+  loading: boolean;
+  error: string | null;
+}
 
 @Component({
   selector: 'app-parking-carousel',
@@ -45,70 +52,20 @@ register();
   templateUrl: './parking-carousel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ParkingCarouselComponent {
+export class ParkingCarouselComponent implements OnInit {
   private apiService = inject(ApiService);
   private authService = inject(AuthService);
   private cdr = inject(ChangeDetectorRef);
 
-  private errorMessageSubject = new BehaviorSubject<string | null>(null);
-  public readonly errorMessage$ = this.errorMessageSubject.asObservable();
+  private state$ = new BehaviorSubject<State>({
+    days: [],
+    loading: true,
+    error: null,
+  });
 
-  private reload$ = new Subject<void>();
-  private loadTrigger$ = merge(
-    this.authService.appUser$.pipe(filter((u) => !!u)),
-    this.reload$
-  );
-
-  readonly swiperEl = viewChild.required('swiperEl', { read: ElementRef });
-
-  readonly slides = viewChildren('slide', { read: ElementRef });
-
-  public today: Date;
-  public tomorrow: Date;
-
-  constructor() {
-    this.today = new Date();
-    this.today.setHours(0, 0, 0, 0);
-
-    this.tomorrow = new Date(this.today);
-    this.tomorrow.setDate(this.today.getDate() + 1);
-  }
-
-  private data$ = this.loadTrigger$.pipe(
-    tap(() => this.errorMessageSubject.next(null)),
-    switchMap(() => {
-      const workDays = this.getNextWorkDays();
-      return this.apiService
-        .get<{ id: number; requestedDate: string }[]>('requests')
-        .pipe(
-          map((existingRequests) =>
-            workDays.map((date) => {
-              const existing = existingRequests.find((req) => {
-                return this.isSameDate(new Date(req.requestedDate), date);
-              });
-
-              return {
-                date,
-                isRequested: !!existing,
-                requestId: existing?.id ?? null,
-                isLoading: false,
-              } as ParkingDay;
-            })
-          ),
-          map((days) => ({ days, loading: false })),
-          catchError((err) => {
-            console.error('Error fetching parking requests', err);
-            this.errorMessageSubject.next('Could not load existing requests.');
-            return of({ days: [] as ParkingDay[], loading: false });
-          }),
-          startWith({ days: [] as ParkingDay[], loading: true })
-        );
-    }),
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
-
-  public readonly parkingDays$ = this.data$.pipe(map((v) => v.days));
-  public readonly isLoading$ = this.data$.pipe(map((v) => v.loading));
+  public readonly parkingDays$ = this.state$.pipe(map((s) => s.days));
+  public readonly isLoading$ = this.state$.pipe(map((s) => s.loading));
+  public readonly errorMessage$ = this.state$.pipe(map((s) => s.error));
 
   public readonly slidesPerView$: Observable<number> = fromEvent(
     window,
@@ -130,83 +87,125 @@ export class ParkingCarouselComponent {
     distinctUntilChanged()
   );
 
-  ngAfterViewInit() {
-    this.parkingDays$
+  private reload$ = new Subject<void>();
+  private loadTrigger$ = merge(
+    this.authService.appUser$.pipe(filter((u) => !!u)),
+    this.reload$
+  );
+
+  @ViewChild('swiperEl', { read: ElementRef, static: true })
+  readonly swiperEl!: ElementRef;
+  @ViewChildren('slide', { read: ElementRef }) readonly slides!: any;
+
+  public today = new Date();
+  public tomorrow = new Date();
+
+  ngOnInit(): void {
+    this.today.setHours(0, 0, 0, 0);
+    this.tomorrow = new Date(this.today);
+    this.tomorrow.setDate(this.today.getDate() + 1);
+
+    this.loadTrigger$
       .pipe(
-        filter((days) => days.length > 0),
-        take(1)
+        tap(() => this.nextState({ loading: true })),
+        switchMap(() => {
+          const workDays = this.getNextWorkDays();
+          return this.apiService
+            .get<{ id: number; requestedDate: string }[]>('requests')
+            .pipe(
+              map((existing) =>
+                workDays.map((date) => {
+                  const ex = existing.find((r) =>
+                    this.isSameDate(new Date(r.requestedDate), date)
+                  );
+                  return {
+                    date,
+                    isRequested: !!ex,
+                    requestId: ex?.id ?? null,
+                    isLoading: false,
+                  } as ParkingDay;
+                })
+              ),
+              map((days) => ({ days, loading: false } as State)),
+              catchError((err) => {
+                console.error('Error fetching requests', err);
+                return of({
+                  days: [],
+                  loading: false,
+                  error: 'Could not load existing requests.',
+                } as State);
+              })
+            );
+        })
       )
-      .subscribe((days) => {
-        const idx = days.findIndex((d) => !d.isRequested);
-        const target = idx > -1 ? idx : 0;
-        setTimeout(() => {
-          const native = this.swiperEl().nativeElement as any;
-          if (native?.swiper && target < 5) {
-            native.swiper.slideTo(target, 0);
-          }
-        }, 20);
-      });
+      .subscribe((s) => this.state$.next(s));
   }
 
-  toggleRequest(day: ParkingDay, index: number): void {
-    this.errorMessageSubject.next(null);
-    day.isLoading = true;
+  toggleRequest(day: ParkingDay): void {
+    const { days } = this.state$.value;
+    const loadingDays = days.map((d) =>
+      this.isSameDate(d.date, day.date) ? { ...d, isLoading: true } : d
+    );
+    this.state$.next({ days: loadingDays, loading: false, error: null });
 
-    let call$: Observable<{ Id: number } | null>;
-    if (day.isRequested && day.requestId) {
-      call$ = this.apiService
-        .delete<void>(`requests/${day.requestId}`)
-        .pipe(map(() => null));
-    } else {
-      call$ = this.apiService.post<{ Id: number }>('requests', {
-        requestedDate: this.formatDateForApi(day.date),
-      });
-    }
+    const call$ = defer(() =>
+      iif(
+        () => day.isRequested,
+        this.apiService
+          .delete<void>(`requests/${day.requestId}`)
+          .pipe(map(() => null)),
+        this.apiService.post<{ id: number }>('requests', {
+          requestedDate: this.formatDateForApi(day.date),
+          countryIsoCode: 'NL',
+          city: 'Zwolle',
+        } as CreateParkingRequestDto)
+      )
+    );
 
     call$
       .pipe(
-        withLatestFrom(this.parkingDays$),
-        tap(([res, days]) => {
-          if (day.isRequested) {
-            day.isRequested = false;
-            day.requestId = null;
-          } else if (res) {
-            day.isRequested = true;
-            day.requestId = res.Id;
-
-            const nextIdx = days.findIndex((d) => !d.isRequested);
-            const native = this.swiperEl().nativeElement as any;
-            if (native?.swiper && nextIdx < 5) {
-              native.swiper.slideTo(nextIdx, 300);
+        take(1),
+        tap((res) => {
+          const updatedDays = loadingDays.map((d) => {
+            if (this.isSameDate(d.date, day.date)) {
+              const nowRequested = !day.isRequested;
+              return {
+                ...d,
+                isLoading: false,
+                isRequested: nowRequested,
+                requestId: nowRequested ? res?.id ?? null : null,
+              };
             }
-          }
-          this.cdr.markForCheck();
+            return d;
+          });
+          this.nextState({ days: updatedDays, loading: false, error: null });
         }),
         catchError((err) => {
-          console.error(
-            `Error ${day.isRequested ? 'revoking' : 'requesting'} parking`,
-            err
+          console.error(err);
+          const reset = loadingDays.map((d) =>
+            this.isSameDate(d.date, day.date) ? { ...d, isLoading: false } : d
           );
-          this.errorMessageSubject.next(
-            `Failed to ${
+          this.nextState({
+            days: reset,
+            loading: false,
+            error: `Failed to ${
               day.isRequested ? 'revoke' : 'request'
-            } parking. Please try again.`
-          );
+            } parking. Please try again.`,
+          });
           return of(null);
-        }),
-        finalize(() => {
-          day.isLoading = false;
         })
       )
       .subscribe();
   }
 
+  private nextState(patch: Partial<State>) {
+    this.state$.next({ ...this.state$.value, ...patch });
+  }
+
   private getNextWorkDays(): Date[] {
     const dates: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let d = new Date(today);
-
+    const base = new Date(this.today);
+    let d = new Date(base);
     while (dates.length < 5) {
       const dow = d.getDay();
       if (dow >= 1 && dow <= 5) {
@@ -214,7 +213,6 @@ export class ParkingCarouselComponent {
       }
       d.setDate(d.getDate() + 1);
     }
-
     return dates;
   }
 
