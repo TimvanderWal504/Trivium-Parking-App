@@ -1,29 +1,25 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace TriviumParkingApp.Backend.Models
+namespace TriviumParkingApp.Backend.Models;
+
+public class Allocation
 {
-    // Represents the result of the allocation process: a user assigned to a space for a date
-    public class Allocation
-    {
-        public int Id { get; set; } // Primary Key
+    public int Id { get; set; }
 
-        public int UserId { get; set; } // Foreign Key
-        [ForeignKey("UserId")]
-        public virtual User User { get; set; } = null!; // Navigation property
+    public int UserId { get; set; }
+    
+    [ForeignKey("UserId")]
+    public virtual User User { get; set; } = null!;
 
-        public int ParkingSpaceId { get; set; } // Foreign Key
-        [ForeignKey("ParkingSpaceId")]
-        public virtual ParkingSpace ParkingSpace { get; set; } = null!; // Navigation property
+    public int ParkingSpaceId { get; set; } 
+    
+    [ForeignKey("ParkingSpaceId")]
+    public virtual ParkingSpace ParkingSpace { get; set; } = null!; 
 
-        [Required]
-        public DateOnly AllocatedDate { get; set; } // The specific date the space is allocated for
+    [Required]
+    public DateOnly AllocatedDate { get; set; }
 
-        public DateTimeOffset AllocationTimestamp { get; set; } = DateTimeOffset.UtcNow; // When the allocation was made
+    public DateTimeOffset AllocationTimestamp { get; set; } = DateTimeOffset.UtcNow; 
 
-        // Optional: Could link back to the specific ParkingRequest if needed, though potentially redundant
-        // public int? ParkingRequestId { get; set; }
-        // [ForeignKey("ParkingRequestId")]
-        // public virtual ParkingRequest? ParkingRequest { get; set; }
-    }
 }

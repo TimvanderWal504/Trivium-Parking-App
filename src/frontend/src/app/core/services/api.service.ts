@@ -39,10 +39,9 @@ export class ApiService {
   get<T>(endpoint: string, params?: HttpParams): Observable<T> {
     return this.buildHeaders$().pipe(
       switchMap((headers) =>
-        this.http.get<T>(`${this.apiUrl}/${endpoint}`, {
-          headers,
-          params,
-        })
+        this.http
+          .get<any>(`${this.apiUrl}/${endpoint}`, { headers, params })
+          .pipe(map((body) => this.toCamelCase(body) as T))
       )
     );
   }
@@ -50,9 +49,9 @@ export class ApiService {
   post<T>(endpoint: string, body: any): Observable<T> {
     return this.buildHeaders$().pipe(
       switchMap((headers) =>
-        this.http.post<T>(`${this.apiUrl}/${endpoint}`, body, {
-          headers,
-        })
+        this.http
+          .post<any>(`${this.apiUrl}/${endpoint}`, body, { headers })
+          .pipe(map((res) => this.toCamelCase(res) as T))
       )
     );
   }
@@ -60,9 +59,11 @@ export class ApiService {
   put<T>(endpoint: string, body: any): Observable<T> {
     return this.buildHeaders$().pipe(
       switchMap((headers) =>
-        this.http.put<T>(`${this.apiUrl}/${endpoint}`, body, {
-          headers,
-        })
+        this.http
+          .put<T>(`${this.apiUrl}/${endpoint}`, body, {
+            headers,
+          })
+          .pipe(map((res) => this.toCamelCase(res) as T))
       )
     );
   }
@@ -70,8 +71,24 @@ export class ApiService {
   delete<T>(endpoint: string): Observable<T> {
     return this.buildHeaders$().pipe(
       switchMap((headers) =>
-        this.http.delete<T>(`${this.apiUrl}/${endpoint}`, { headers })
+        this.http
+          .delete<T>(`${this.apiUrl}/${endpoint}`, { headers })
+          .pipe(map((res) => this.toCamelCase(res) as T))
       )
     );
+  }
+
+  private toCamelCase(input: any): any {
+    if (Array.isArray(input)) {
+      return input.map((v) => this.toCamelCase(v));
+    } else if (input !== null && typeof input === 'object') {
+      return Object.entries(input).reduce((acc, [key, value]) => {
+        const camelKey = key.charAt(0).toLowerCase() + key.slice(1);
+        acc[camelKey] = this.toCamelCase(value);
+        return acc;
+      }, {} as Record<string, any>);
+    }
+
+    return input;
   }
 }

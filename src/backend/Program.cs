@@ -1,19 +1,23 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
-using Microsoft.EntityFrameworkCore;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using TriviumParkingApp.Backend.Data;
-using TriviumParkingApp.Backend.Repositories; // Add Repositories namespace
-using TriviumParkingApp.Backend.Services; // Add Services namespace
-using TriviumParkingApp.Backend.Middleware; // Add Middleware namespace
+using TriviumParkingApp.Backend.Middleware;
+using TriviumParkingApp.Backend.Models;
+using TriviumParkingApp.Backend.Repositories;
+using TriviumParkingApp.Backend.Services;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWorkerDefaults(worker => // Configure worker defaults
+    .ConfigureFunctionsWorkerDefaults(worker =>
     {
         // Register middleware - order matters!
-        worker.UseMiddleware<FirebaseAuthMiddleware>();
+        worker.UseMiddleware<FirebaseAuthMiddleware>();       
         // Add other middleware here if needed
     })
     .ConfigureServices((context, services) => { // Access context for configuration
@@ -25,7 +29,7 @@ var host = new HostBuilder()
         {
             throw new InvalidOperationException("SQL Azure Connection String 'SqlAzureConnectionString' not found in configuration.");
         }
-        services.AddDbContext<ParkingDbContext>(options =>
+        services.AddDbContextFactory<ParkingDbContext>(options =>
             options.UseSqlServer(sqlConnectionString));
 
         // Configure Firebase Admin SDK
@@ -39,18 +43,50 @@ var host = new HostBuilder()
         {
              throw new FileNotFoundException($"Firebase Admin SDK file not found at: {fullPath}");
         }
+
+        var json = File.ReadAllText(fullPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var projectId = doc.RootElement.GetProperty("project_id").GetString()
+                         ?? throw new InvalidOperationException("project_id niet gevonden in service account JSON");
+
         services.AddSingleton(FirebaseApp.Create(new AppOptions()
         {
             Credential = GoogleCredential.FromFile(fullPath),
-            // Optionally add DatabaseURL or StorageBucket if needed later
+            ProjectId = projectId
         }));
 
         // Register HttpClientFactory
         services.AddHttpClient();
 
+        services.AddIdentityCore<User>(options =>
+        {
+            options.User.RequireUniqueEmail = false;
+            options.Password.RequireDigit = false;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequireUppercase = false;
+            options.Password.RequireLowercase = false;
+        })
+        .AddRoles<Role>()
+        .AddEntityFrameworkStores<ParkingDbContext>();
+
+        services
+         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+         .AddJwtBearer(options =>
+         {
+             options.Authority = $"https://securetoken.google.com/{projectId}";
+             options.TokenValidationParameters = new TokenValidationParameters
+             {
+                 ValidateIssuer = true,
+                 ValidIssuer = $"https://securetoken.google.com/{projectId}",
+                 ValidateAudience = true,
+                 ValidAudience = projectId,
+                 ValidateLifetime = true,
+             };
+         });
+
+        services.AddScoped<IClaimsTransformation, FirebaseRoleClaimsTransformation>();
+
         // Register Repositories (Scoped lifetime is usually appropriate)
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IParkingLotRepository, ParkingLotRepository>();
         services.AddScoped<IParkingRequestRepository, ParkingRequestRepository>();
         services.AddScoped<IAllocationRepository, AllocationRepository>();

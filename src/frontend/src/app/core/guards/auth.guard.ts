@@ -16,7 +16,6 @@ export const authGuard: CanActivateFn = () => {
     ),
     take(1),
     map((state) => {
-      console.log(state);
       return true;
     })
   );

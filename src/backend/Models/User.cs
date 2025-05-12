@@ -1,24 +1,24 @@
+using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace TriviumParkingApp.Backend.Models
+namespace TriviumParkingApp.Backend.Models;
+
+public class User : IdentityUser<int>
 {
-    public class User
-    {
-        public int Id { get; set; } // Primary Key
+    [Required]
+    [MaxLength(255)]
+    public string FirebaseUid { get; set; } = string.Empty;
 
-        [Required]
-        [MaxLength(255)] // Firebase UIDs are typically shorter, but good to have a limit
-        public string FirebaseUid { get; set; } = string.Empty; // Link to Firebase Auth User
+    [NotMapped]
+    public override string UserName => FirebaseUid;   
 
-        [MaxLength(100)]
-        public string? Email { get; set; } // Store email for reference?
+    [MaxLength(100)]
+    public override string? Email { get; set; }
 
-        [MaxLength(100)]
-        public string? DisplayName { get; set; } // Store display name?
+    [MaxLength(100)]
+    public string? DisplayName { get; set; } 
 
-        // Navigation properties
-        public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
-        public virtual ICollection<ParkingRequest> ParkingRequests { get; set; } = new List<ParkingRequest>();
-        public virtual ICollection<Allocation> Allocations { get; set; } = new List<Allocation>();
-    }
+    public virtual ICollection<ParkingRequest> ParkingRequests { get; set; } = new List<ParkingRequest>();
+    public virtual ICollection<Allocation> Allocations { get; set; } = new List<Allocation>();
 }

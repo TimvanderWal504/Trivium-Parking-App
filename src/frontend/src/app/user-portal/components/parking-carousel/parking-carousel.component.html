@@ -31,7 +31,7 @@
           <swiper-slide *ngFor="let day of days; let i = index">
             <div
               #slide
-              class="flex flex-col items-center justify-between p-4 border rounded-lg transition-shadow hover:shadow-md mb-4"
+              class="flex flex-col items-center justify-between p-4 mb-4 border rounded-lg transition-shadow hover:shadow-md"
               [ngClass]="{
                 'border-primary': day.isRequested,
                 'border-secondary/20': !day.isRequested,

@@ -30,14 +30,12 @@ namespace TriviumParkingApp.Backend.Functions
 
             try
             {
-                // Delegate to service layer, request spaces included
                 var parkingLotsDto = await _parkingLotService.GetAllParkingLotsAsync(includeSpaces: true);
 
                 response = req.CreateResponse(HttpStatusCode.OK);
-                // Return the DTO list
                 await response.WriteAsJsonAsync(parkingLotsDto);
             }
-            catch (Exception ex) // Catch broader exceptions
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving parking lots.");
                 response = req.CreateResponse(HttpStatusCode.InternalServerError);
@@ -46,7 +44,5 @@ namespace TriviumParkingApp.Backend.Functions
 
             return response;
         }
-
-        // TODO: Add functions for POST, PUT, DELETE parking lots (Admin only) later using the service layer
     }
 }

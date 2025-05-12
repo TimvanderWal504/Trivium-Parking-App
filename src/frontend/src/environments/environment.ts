@@ -13,5 +13,5 @@ export const environment = {
     appId: 'YOUR_APP_ID',
     // measurementId: "YOUR_DEV_MEASUREMENT_ID" // Optional: Add if using Analytics
   },
-  backendApiUrl: 'YOUR_BACKENDAPI_URL', // Default backend URL for base environment
+  backendApiUrl: 'YOUR_BACKENDAPI_URL', // default backend port for development (use IP literal for cypress e2e tests)
 };
