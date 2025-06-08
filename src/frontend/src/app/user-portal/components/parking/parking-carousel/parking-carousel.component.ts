@@ -10,9 +10,6 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { ApiService } from '../../../core/services/api.service';
-import { AuthService } from '../../../core/services/auth.service';
-import { ParkingDay } from '../../../models/parking-day.model';
 import { register } from 'swiper/element/bundle';
 import {
   BehaviorSubject,
@@ -34,7 +31,10 @@ import {
   distinctUntilChanged,
   take,
 } from 'rxjs/operators';
-import { CreateParkingRequestDto } from '../../../models/parking-request.dtos';
+import { ApiService } from '../../../../core/services/api.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import { ParkingDay } from '../../../../models/parking-day.model';
+import { CreateParkingRequestDto } from '../../../../models/parking-request.dtos';
 
 register();
 

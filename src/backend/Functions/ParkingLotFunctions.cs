@@ -17,9 +17,9 @@ public class ParkingLotFunctions
         _parkingLotService = parkingLotService;
     }
 
-    [Function("GetParkingLots")]
-    public async Task<HttpResponseData> GetParkingLots(
-    [HttpTrigger(AuthorizationLevel.Function, "get", Route = "parkingLots")] HttpRequestData req,
+    [Function("GetParkingLotLocations")]
+    public async Task<HttpResponseData> GetParkingLotLocations(
+    [HttpTrigger(AuthorizationLevel.Function, "get", Route = "parkinglot/location")] HttpRequestData req,
     FunctionContext context)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request to GetParkingLots.");
@@ -28,7 +28,7 @@ public class ParkingLotFunctions
 
         try
         {
-            var parkingLotsDto = await _parkingLotService.GetAllParkingLotsAsync(includeSpaces: true);
+            var parkingLotsDto = await _parkingLotService.GetAllParkingLotLocationsAsync();
 
             response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(parkingLotsDto);

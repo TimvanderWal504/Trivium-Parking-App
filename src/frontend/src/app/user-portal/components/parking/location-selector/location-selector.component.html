@@ -1,0 +1,17 @@
+<div class="flex space-x-4 mb-6" [formGroup]="filterForm">
+  <!-- Land -->
+  <select formControlName="country" class="border p-2 rounded flex-1">
+    <option [ngValue]="null">All Trivium countries</option>
+    <option *ngFor="let c of countries$ | async" [value]="c.code">
+      {{ c.name }}
+    </option>
+  </select>
+
+  <!-- Stad -->
+  <select formControlName="city" class="border p-2 rounded flex-1">
+    <option [ngValue]="null">All Trivium cities</option>
+    <option *ngFor="let city of cities$ | async" [value]="city">
+      {{ city }}
+    </option>
+  </select>
+</div>

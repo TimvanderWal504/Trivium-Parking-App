@@ -1,0 +1,20 @@
+<div class="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+  <div
+    class="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-auto overflow-hidden"
+  >
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+      <h3 class="text-lg font-semibold">{{ title() }}</h3>
+      <button (click)="close()" class="text-gray-600 hover:text-gray-800">
+        &times;
+      </button>
+    </div>
+
+    <div class="p-6">
+      <ng-content select="[modal-body]"></ng-content>
+    </div>
+
+    <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-2">
+      <ng-content select="[modal-footer]"></ng-content>
+    </div>
+  </div>
+</div>

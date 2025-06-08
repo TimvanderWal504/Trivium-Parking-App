@@ -1,0 +1,24 @@
+<div class="space-y-4">
+  <div
+    *ngFor="let ctrl of visitorsFormArray.controls; let i = index"
+    [formGroupName]="i"
+    class="flex space-x-2 items-end"
+  >
+    <input
+      formControlName="name"
+      placeholder="Naam"
+      class="border p-2 rounded flex-1"
+    />
+    <input
+      formControlName="email"
+      placeholder="E-mail"
+      class="border p-2 rounded flex-1"
+    />
+    <button (click)="remove.emit(i)" class="text-red-500 text-xl leading-none">
+      ×
+    </button>
+  </div>
+  <button (click)="add.emit()" class="bg-blue-600 text-white px-4 py-2 rounded">
+    Add visitor
+  </button>
+</div>

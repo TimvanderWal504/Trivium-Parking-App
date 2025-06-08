@@ -1,0 +1,54 @@
+<app-modal
+  title="Select city & add visitors to park request"
+  (closed)="close()"
+>
+  <!-- Body -->
+  <div modal-body>
+    <!-- Tabs -->
+    <div class="flex border-b mb-4">
+      <button
+        class="flex-1 py-2 text-center"
+        [class.border-b-2]="(tab$ | async) === 'location'"
+        (click)="toggleTab('location')"
+      >
+        Location
+      </button>
+      <button
+        class="flex-1 py-2 text-center"
+        [class.border-b-2]="(tab$ | async) === 'visitors'"
+        (click)="toggleTab('visitors')"
+      >
+        Visitors
+      </button>
+    </div>
+
+    <!-- TAB: Location -->
+    <ng-container *ngIf="(tab$ | async) === 'location'">
+      <app-location-selector
+        [filterForm]="filterForm"
+        [locations$]="locations$"
+      ></app-location-selector>
+    </ng-container>
+
+    <!-- TAB: Visitors -->
+    <ng-container *ngIf="(tab$ | async) === 'visitors'">
+      <app-visitor-list
+        [visitorsFormArray]="visitorsArr"
+        (add)="addVisitor()"
+        (remove)="removeVisitor($event)"
+      ></app-visitor-list>
+    </ng-container>
+  </div>
+
+  <!-- Footer -->
+  <div modal-footer>
+    <button (click)="close()" class="px-4 py-2 rounded">Cancel</button>
+    <button
+      (click)="save()"
+      [disabled]="filterForm.invalid || visitorsArr.length === 0"
+      class="bg-primary text-white px-4 py-2 rounded"
+    >
+      Request and save
+    </button>
+  </div>
+</app-modal>

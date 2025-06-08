@@ -4,6 +4,14 @@ export interface CreateParkingRequestDto {
   city: string;
 }
 
+export interface CreateVisitorParkingRequestDto
+  extends CreateParkingRequestDto {
+  visitors: {
+    name: string;
+    email: string;
+  }[];
+}
+
 export interface ParkingRequestResponseDto {
   id: number;
   userId: number;

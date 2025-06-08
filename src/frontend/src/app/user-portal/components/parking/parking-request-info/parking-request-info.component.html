@@ -1,0 +1,59 @@
+<div
+  class="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-auto overflow-hidden"
+>
+  <!-- Header -->
+  <div class="px-6 py-4 border-b flex justify-between items-center">
+    <h3 class="text-lg font-semibold">
+      Select city &amp; add visitors to park request
+    </h3>
+  </div>
+
+  <!-- Body -->
+  <div class="p-6">
+    <!-- Tabs -->
+    <div class="flex border-b mb-4">
+      <button
+        class="flex-1 py-2 text-center"
+        [class.border-b-2]="(tab$ | async) === 'location'"
+        (click)="toggleTab('location')"
+      >
+        Location
+      </button>
+      <button
+        class="flex-1 py-2 text-center"
+        [class.border-b-2]="(tab$ | async) === 'visitors'"
+        (click)="toggleTab('visitors')"
+      >
+        Visitors
+      </button>
+    </div>
+
+    <!-- TAB: Location -->
+    <ng-container *ngIf="(tab$ | async) === 'location'">
+      <app-location-selector
+        [filterForm]="filterForm"
+        [locations$]="locations$"
+      ></app-location-selector>
+    </ng-container>
+
+    <!-- TAB: Visitors -->
+    <ng-container *ngIf="(tab$ | async) === 'visitors'">
+      <app-visitor-list
+        [visitorsFormArray]="visitorsArr"
+        (add)="addVisitor()"
+        (remove)="removeVisitor($event)"
+      ></app-visitor-list>
+    </ng-container>
+  </div>
+
+  <!-- Footer -->
+  <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-2">
+    <button
+      (click)="save()"
+      [disabled]="filterForm.invalid || visitorsArr.length === 0"
+      class="bg-primary text-white px-4 py-2 rounded"
+    >
+      Save
+    </button>
+  </div>
+</div>
